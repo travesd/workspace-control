@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+WORK_ROOT="$ROOT/detection-platform-metal-work"
+
+count_dirs() {
+  local path="$1"
+  if [ -d "$path" ]; then
+    find "$path" -mindepth 1 -maxdepth 1 -type d | wc -l
+  else
+    echo 0
+  fi
+}
+
+echo "# Workspace Artifact Inventory"
+date -u +"Generated: %Y-%m-%d %H:%M:%SZ"
+echo
+
+echo "## Task Directories"
+for name in busy planned later done archived investigations; do
+  printf -- "- %s: %s\\n" "$name" "$(count_dirs "$WORK_ROOT/$name")"
+done
+echo
+
+echo "## Resume Files"
+if [ -d "$WORK_ROOT/busy" ]; then
+  echo "- busy dirs: $(find "$WORK_ROOT/busy" -mindepth 1 -maxdepth 1 -type d | wc -l)"
+  echo "- resume files: $(find "$WORK_ROOT/busy" -mindepth 2 -maxdepth 2 -name resume.md | wc -l)"
+  echo "- missing resume:"
+  find "$WORK_ROOT/busy" -mindepth 1 -maxdepth 1 -type d ! -exec test -e '{}/resume.md' \; -print | sed 's/^/  - /' || true
+fi
+echo
+
+echo "## Worktrees"
+if [ -d "$ROOT/detection-platform-metal" ]; then
+  git -C "$ROOT/detection-platform-metal" worktree list --porcelain | grep -c '^worktree ' | sed 's/^/- count: /'
+fi
+echo
+
+echo "## Dataset And Backup Manifests"
+echo "- dataset manifests: $(find "$ROOT/datasets" -type f \( -name MANIFEST.json -o -name SNAPSHOT.md \) 2>/dev/null | wc -l)"
+echo "- backup manifests: $(find "$ROOT/backups" -type f -name MANIFEST.json 2>/dev/null | wc -l)"
+echo
+
+echo "## Shared Skills"
+if [ -d "$ROOT/agent-skills/skills" ]; then
+  find "$ROOT/agent-skills/skills" -mindepth 1 -maxdepth 1 -type d -printf '- %f\n' | sort
+fi
+echo
+
+echo "## Large Busy Task Dirs"
+if [ -d "$WORK_ROOT/busy" ]; then
+  du -sh "$WORK_ROOT/busy"/* 2>/dev/null | sort -hr | sed -n '1,20p'
+fi

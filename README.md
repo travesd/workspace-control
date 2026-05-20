@@ -14,6 +14,7 @@ The source of truth should remain provider-neutral. Claude memory, Codex memory,
 - Workspace instructions and conventions.
 - Shared Agent Skills.
 - Durable knowledge notes with provenance and re-verification rules.
+- Workspace-control helper scripts in `tools/`.
 - Process decisions and ADRs.
 - Templates for task setup, session hygiene, close-off, and cross-agent review.
 - Pi pilot agents, workflow drafts, and translation notes.
@@ -36,3 +37,9 @@ This initial scaffold imports:
 - a Pi pilot area with draft agents and workflow mapping.
 
 Future work should migrate imported memory into normalized `knowledge/*.md` notes before deleting or deprecating the imported copy.
+
+## Helper Scripts
+
+- `tools/workspace-status` - short live orientation report for agents.
+- `tools/workspace-artifact-inventory` - audit-grade inventory for cleanup/review work.
+- `tools/check-no-secrets` - large-file and obvious secret-pattern check before commits.

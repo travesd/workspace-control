@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+WORK_ROOT="$ROOT/detection-platform-metal-work"
+
+echo "# Workspace Status"
+date -u +"Generated: %Y-%m-%d %H:%M:%SZ"
+echo
+
+if [ -f "$WORK_ROOT/ACTIVE.md" ]; then
+  echo "## Active Work"
+  sed -n '1,80p' "$WORK_ROOT/ACTIVE.md"
+  echo
+else
+  echo "Missing ACTIVE.md at $WORK_ROOT/ACTIVE.md"
+fi
+
+if [ -f "$WORK_ROOT/SESSIONS.md" ]; then
+  echo "## Session Summary"
+  sed -n '/^## Summary/,/^## Live Recorded Sessions/p' "$WORK_ROOT/SESSIONS.md" | sed '$d'
+  echo
+fi
+
+echo "## Current Directory"
+pwd
+echo
+
+echo "## Worktrees"
+if [ -d "$ROOT/detection-platform-metal" ]; then
+  git -C "$ROOT/detection-platform-metal" worktree list --porcelain | awk '
+    /^worktree / {wt=$0; sub(/^worktree /, "", wt); print "- " wt}
+    /^branch / {print "  " $0}
+  ' | sed -n '1,80p'
+else
+  echo "- detection-platform-metal repo not found"
+fi
+
+echo
+echo "## Intake Checklist"
+echo "- For non-trivial work, create or identify a task dir."
+echo "- For branch work, use a detection-platform-metal worktree."
+echo "- Record long-running agent sessions in task resume.md."
+echo "- Keep data products in /workspace/datasets, not task dirs."
