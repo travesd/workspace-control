@@ -19,6 +19,8 @@ It should not become the canonical store for workspace rules or durable learning
 - Persisted flows for auditability.
 - Harness-style plan/evaluate/review artifacts.
 
+See `WORKFLOWS.md` for the current pilot workflow map.
+
 ## Guardrails
 
 - Review Pi packages before installing them.

@@ -1,0 +1,25 @@
+{
+  "label": "pi adapter review",
+  "flow": {
+    "kind": "fork",
+    "id": "adapter-review",
+    "branches": {
+      "config": {
+        "kind": "spawn",
+        "agent": "pi-adapter-reviewer",
+        "task": "Review .pi settings, agents, prompts, and workflows for safety and drift.",
+        "output": "json"
+      },
+      "source-of-truth": {
+        "kind": "spawn",
+        "agent": "workspace-reviewer",
+        "task": "Review whether the Pi pilot still consumes workspace-control source files instead of duplicating them.",
+        "output": "json"
+      }
+    }
+  },
+  "budgets": {
+    "maxParallelism": 2,
+    "maxDepth": 2
+  }
+}

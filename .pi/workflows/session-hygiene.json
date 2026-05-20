@@ -1,0 +1,26 @@
+{
+  "label": "session hygiene",
+  "flow": {
+    "kind": "sequence",
+    "steps": [
+      {
+        "kind": "spawn",
+        "id": "status",
+        "agent": "session-steward",
+        "task": "Inspect current workspace session state and identify missing or malformed recovery metadata.",
+        "output": "json"
+      },
+      {
+        "kind": "spawn",
+        "id": "review",
+        "agent": "workspace-reviewer",
+        "task": "Review the proposed session-hygiene remediation for critical-task safety and provider-specific assumptions.",
+        "output": "json"
+      }
+    ]
+  },
+  "budgets": {
+    "maxParallelism": 1,
+    "maxDepth": 2
+  }
+}

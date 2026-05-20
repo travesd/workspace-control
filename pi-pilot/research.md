@@ -9,6 +9,7 @@ Checked: 2026-05-20
 - Pi agent files live under project `.pi/agents/**/*.md`; Pi subagent packages also discover legacy `.agents/**/*.md`.
 - Pi workflow graphs can use `spawn`, `sequence`, `fork`, `join`, and `loop`.
 - Some Pi packages persist flows and harness artifacts for auditability.
+- Pi's skills docs explicitly warn that skills can instruct arbitrary actions and include executable code; review skill content before use.
 
 ## Workspace Interpretation
 

@@ -9,6 +9,8 @@
 | `/workspace/detection-platform-metal-work/*` | Task lifecycle and artifacts | Pi workflows should write plans/reviews back to task dirs, not only Pi run dirs |
 | `/home/user/.claude/projects/-workspace/memory/` | Claude-local learnings | Migrated into provider-neutral `knowledge/` |
 | `/workspace/tools/agents/sessionctl` | Session tracking | Future `session-hygiene` workflow/tool wrapper |
+| `/workspace/workspace-control/tools/workspace-status` | Live orientation report | Pi prompt/skill entry point for session start |
+| `/workspace/workspace-control/tools/workspace-artifact-inventory` | Audit-grade inventory | Pi workflow evidence source |
 
 ## Proposed Pi Agents
 
@@ -17,6 +19,10 @@
 | `workspace-scout` | Read current state and produce a short orientation report |
 | `workspace-reviewer` | Review a proposed process or scaffold against workspace rules |
 | `workspace-synthesizer` | Merge provider or subagent findings into final recommendations |
+| `knowledge-curator` | Normalize learnings into provider-neutral knowledge notes |
+| `session-steward` | Inspect and repair recoverability metadata |
+| `task-closer` | Build safe task close-off plans |
+| `pi-adapter-reviewer` | Review Pi configuration for drift and package risk |
 
 ## Proposed Pi Workflows
 

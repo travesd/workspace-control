@@ -1,0 +1,33 @@
+{
+  "label": "task close-off",
+  "flow": {
+    "kind": "sequence",
+    "steps": [
+      {
+        "kind": "spawn",
+        "id": "closeoff-check",
+        "agent": "task-closer",
+        "task": "Inspect the requested task and produce a safe close-off checklist with blockers, large-artifact warnings, and required index updates.",
+        "output": "json"
+      },
+      {
+        "kind": "spawn",
+        "id": "review",
+        "agent": "workspace-reviewer",
+        "task": "Review the close-off checklist against ACTIVE.md keep rules and no-data-loss constraints.",
+        "output": "json"
+      },
+      {
+        "kind": "spawn",
+        "id": "synthesize",
+        "agent": "workspace-synthesizer",
+        "task": "Summarize the approved close-off plan and identify commands that still need explicit user approval.",
+        "output": "text"
+      }
+    ]
+  },
+  "budgets": {
+    "maxParallelism": 1,
+    "maxDepth": 3
+  }
+}

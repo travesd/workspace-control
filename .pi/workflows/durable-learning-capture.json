@@ -1,0 +1,33 @@
+{
+  "label": "durable learning capture",
+  "flow": {
+    "kind": "sequence",
+    "steps": [
+      {
+        "kind": "spawn",
+        "id": "curate",
+        "agent": "knowledge-curator",
+        "task": "Classify the supplied learning, verify its source, and draft the provider-neutral knowledge note or promotion plan.",
+        "output": "json"
+      },
+      {
+        "kind": "spawn",
+        "id": "review",
+        "agent": "workspace-reviewer",
+        "task": "Review the proposed durable-learning change for scope, provenance, stale-claim risk, and no-secret compliance.",
+        "output": "json"
+      },
+      {
+        "kind": "spawn",
+        "id": "synthesize",
+        "agent": "workspace-synthesizer",
+        "task": "Produce the final patch plan and implementation order from the curator and reviewer outputs.",
+        "output": "text"
+      }
+    ]
+  },
+  "budgets": {
+    "maxParallelism": 1,
+    "maxDepth": 3
+  }
+}
