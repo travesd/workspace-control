@@ -42,4 +42,4 @@ Future work should migrate imported memory into normalized `knowledge/*.md` note
 
 - `tools/workspace-status` - short live orientation report for agents.
 - `tools/workspace-artifact-inventory` - audit-grade inventory for cleanup/review work.
-- `tools/check-no-secrets` - large-file and obvious secret-pattern check before commits.
+- `tools/check-sensitive-content` - large-file and obvious secret-pattern check before commits.

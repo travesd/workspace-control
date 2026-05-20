@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+TOOL_DIR="${DATASETCTL_TOOL_DIR:-$ROOT/tools/datasets}"
+IMAGE="${DATASETCTL_IMAGE:-detection-datasetctl:local}"
+NETWORK="${DB_DOCKER_NETWORK:-detection-db-access}"
+DBCTL="${DBCTL:-$ROOT/tools/db/dbctl}"
+LOCK_DIR="${DATASETCTL_LOCK_DIR:-$ROOT/.agent-datasets}"
+
+usage() {
+  cat <<'USAGE'
+Usage: /workspace/tools/datasets/datasetctl <command> [args...]
+
+Provider-neutral managed local dataset tooling. Runs in a container and stores
+durable detection exports under /workspace/datasets/detection.
+
+Common commands:
+  init
+      Create the DuckDB catalog, manifest directories, and Parquet roots.
+
+  export incidents --env prod --name <name> --sql-file <query.sql>
+      Run a read-only SQL query that returns an incident_id column, store
+      deduplicated incident payloads, exact run membership, and snapshot JSONL.
+
+  runs list
+  runs show <run_id>
+
+  materialize incidents --run-id <run_id> --format ids|incident-jsonl|snapshot-jsonl --output <path>
+      Recreate exactly the incidents selected by a previous run.
+
+Examples:
+  /workspace/tools/datasets/datasetctl init
+  /workspace/tools/datasets/datasetctl export incidents \
+    --env prod \
+    --name llm-rethink-seed \
+    --sql-file /workspace/datasets/adhoc/query.sql
+USAGE
+}
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+ensure_image() {
+  if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    echo "datasetctl: building $IMAGE" >&2
+    docker build -t "$IMAGE" "$TOOL_DIR" >/dev/null
+  fi
+}
+
+workspace_workdir() {
+  case "${PWD:-}" in
+    "$ROOT"/*|"$ROOT") printf '%s' "$PWD" ;;
+    *) printf '%s' "$ROOT" ;;
+  esac
+}
+
+arg_has_help() {
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      -h|--help) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+env_arg() {
+  local previous=""
+  local arg
+  for arg in "$@"; do
+    if [ "$previous" = "--env" ]; then
+      printf '%s' "$arg"
+      return 0
+    fi
+    case "$arg" in
+      --env=*)
+        printf '%s' "${arg#--env=}"
+        return 0
+        ;;
+    esac
+    previous="$arg"
+  done
+  printf '%s' "${DB_ENV:-prod}"
+}
+
+needs_db() {
+  local cmd="${1:-help}"
+  if arg_has_help "$@"; then
+    return 1
+  fi
+  case "$cmd" in
+    export) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+main() {
+  local cmd="${1:-help}"
+  case "$cmd" in
+    help|-h|--help)
+      usage
+      return 0
+      ;;
+  esac
+
+  mkdir -p "$LOCK_DIR"
+  if command -v flock >/dev/null 2>&1; then
+    exec 8>"$LOCK_DIR/catalog.lock"
+    flock 8
+  fi
+
+  [ -f "$TOOL_DIR/datasetctl.py" ] || die "$TOOL_DIR/datasetctl.py not found"
+  ensure_image
+
+  local docker_args=(-u "$(id -u):$(id -g)" -v "$ROOT:$ROOT" -w "$(workspace_workdir)")
+  if needs_db "$@"; then
+    local env_name
+    env_name="$(env_arg "$@")"
+    [ -x "$DBCTL" ] || die "$DBCTL not found or not executable"
+    "$DBCTL" start "$env_name" >/dev/null
+    docker_args+=(--network "$NETWORK")
+    docker_args+=(
+      -e "PGHOST=${PGHOST:-detection-db-tunnel}"
+      -e "PGPORT=${PGPORT:-25432}"
+      -e "PGDATABASE=${PGDATABASE:-detection}"
+      -e "DB_ENV=$env_name"
+    )
+  fi
+
+  docker run --rm \
+    "${docker_args[@]}" \
+    -e "WORKSPACE_ROOT=$ROOT" \
+    -e "DATASET_ROOT=${DATASET_ROOT:-$ROOT/datasets/detection}" \
+    -e "DB_ENV_FILE=${DB_ENV_FILE:-$ROOT/db.env}" \
+    -e "DATASETCTL_API_ENV_PROD=${DATASETCTL_API_ENV_PROD:-$ROOT/classifiers.pipeline-prod-new.env}" \
+    -e "DATASETCTL_API_ENV_STAGING=${DATASETCTL_API_ENV_STAGING:-$ROOT/classifiers.pipeline-staging-new.env}" \
+    "$IMAGE" \
+    python "$TOOL_DIR/datasetctl.py" "$@"
+}
+
+main "$@"

@@ -8,10 +8,11 @@ docker-swarm.env
 classifiers*.env
 detection-core.env
 submit-tr.env
-*credential*
-*credentials*
-*secret*
-*token*
+*.credential
+*.credentials
+*.secret
+*.secrets
+*.token
 *.pem
 *.key
 
@@ -27,11 +28,11 @@ telemetry/
 usage-data/
 
 # Large workspace data products
-datasets/
-backups/
-archive/
-data/
-testing-data/
+/datasets/
+/backups/
+/archive/
+/data/
+/testing-data/
 *.parquet
 *.duckdb
 *.csv

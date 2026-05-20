@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+
+echo "# Secret/Large-File Check"
+echo "Root: $ROOT"
+echo
+
+echo "## Files Over 1 MB"
+find "$ROOT" -path "$ROOT/.git" -prune -o -type f -size +1M -print
+echo
+
+echo "## Direct Secret-Like Assignments"
+rg -n "BEGIN [A-Z ]*PRIVATE|api[_-]?key\\s*[:=]|secret\\s*[:=]|token\\s*[:=]|password\\s*[:=]|credential\\s*[:=]" "$ROOT" -g '!*.git/*' || true
+echo
+
+echo "Review any hits manually. Variable names and documentation references can be false positives; real values must not be committed."
