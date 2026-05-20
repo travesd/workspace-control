@@ -1,0 +1,1117 @@
+#!/usr/bin/env python3
+"""Workspace helper for recording Claude/Codex session resume metadata."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import time
+import uuid
+from pathlib import Path
+
+
+ROOT = Path(os.environ.get("WORKSPACE_ROOT", "/workspace"))
+WORK_ROOT = ROOT / "detection-platform-metal-work"
+BUSY_ROOT = WORK_ROOT / "busy"
+SESSIONS_FILE = WORK_ROOT / "SESSIONS.md"
+SESSIONS_STATE_DIR = WORK_ROOT / ".sessions"
+SESSIONS_JSON = SESSIONS_STATE_DIR / "index.json"
+CLAUDE_PROJECTS = Path.home() / ".claude" / "projects"
+CODEX_SESSIONS = Path.home() / ".codex" / "sessions"
+UUID_RE = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+
+
+def die(message: str) -> None:
+    print(f"sessionctl: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check)
+
+
+def utc_now() -> str:
+    return time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
+
+
+def task_dir(task: str) -> Path:
+    path = Path(task)
+    if path.is_absolute():
+        return path
+    return BUSY_ROOT / task
+
+
+def resume_file(task: str) -> Path:
+    return task_dir(task) / "resume.md"
+
+
+def md(value: str | None) -> str:
+    if not value:
+        return ""
+    return value.replace("\n", " ").replace("|", "\\|")
+
+
+def code(value: str | None) -> str:
+    if not value:
+        return ""
+    safe = md(value).replace("`", "\\`")
+    return f"`{safe}`"
+
+
+def ensure_resume(
+    task: str,
+    *,
+    worktree: str = "",
+    branch: str = "",
+    pr: str = "",
+    gateway: str = "",
+    note: str = "",
+) -> Path:
+    tdir = task_dir(task)
+    tdir.mkdir(parents=True, exist_ok=True)
+    path = tdir / "resume.md"
+    if path.exists():
+        return path
+
+    display_task = tdir.name
+    text = f"""# Resume
+
+Updated: {utc_now()}
+Canonical cwd: /workspace
+
+## Sessions
+
+| Provider | Role | Session ID | Resume Command | Tmux | Status | Transcript | Notes |
+|---|---|---|---|---|---|---|---|
+
+## Work Context
+
+- Task dir: `{tdir}`
+- Worktree: `{worktree}`
+- Branch: `{branch}`
+- PR / issue: `{pr}`
+- Gateway route: `{gateway}`
+
+## Current State
+
+- {note or f"Session metadata initialized for `{display_task}`."}
+
+## Next Step
+
+- Update this section before pausing or handing off the task.
+
+## Stale Sessions
+
+- None recorded.
+"""
+    path.write_text(text)
+    return path
+
+
+def replace_updated(text: str) -> str:
+    return re.sub(r"^Updated: .*$", f"Updated: {utc_now()}", text, count=1, flags=re.MULTILINE)
+
+
+def record_session(
+    task: str,
+    *,
+    provider: str,
+    role: str,
+    session_id: str,
+    resume_command: str,
+    tmux: str = "",
+    status: str = "active",
+    transcript: str = "",
+    notes: str = "",
+    worktree: str = "",
+    branch: str = "",
+    pr: str = "",
+    gateway: str = "",
+) -> Path:
+    if status != "pending-id" and not UUID_RE.fullmatch(session_id):
+        die(f"session id is not a UUID: {session_id}")
+
+    path = ensure_resume(task, worktree=worktree, branch=branch, pr=pr, gateway=gateway)
+    text = path.read_text()
+    text = replace_updated(text)
+    row = (
+        f"| {md(provider)} | {md(role)} | {code(session_id)} | {code(resume_command)} | "
+        f"{code(tmux)} | {md(status)} | {code(transcript)} | {md(notes)} |"
+    )
+
+    lines = []
+    for line in text.splitlines():
+        if line.startswith("| ") and session_id in line:
+            continue
+        lines.append(line)
+    text = "\n".join(lines) + "\n"
+
+    marker = "|---|---|---|---|---|---|---|---|"
+    if marker not in text:
+        die(f"{path} does not contain the expected Sessions table")
+    text = text.replace(marker, marker + "\n" + row, 1)
+    path.write_text(text)
+    return path
+
+
+def transcript_for(provider: str, session_id: str) -> str:
+    if provider.lower() == "claude":
+        matches = sorted(CLAUDE_PROJECTS.glob(f"**/{session_id}.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        return str(matches[0]) if matches else ""
+
+    if provider.lower() == "codex":
+        matches = sorted(CODEX_SESSIONS.glob(f"**/*{session_id}.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if matches:
+            return str(matches[0])
+        for path in CODEX_SESSIONS.glob("**/*.jsonl"):
+            try:
+                with path.open() as fh:
+                    for line in fh:
+                        if session_id in line:
+                            return str(path)
+            except OSError:
+                continue
+        return ""
+
+    return ""
+
+
+def parse_session_from_cmd(cmd: str) -> tuple[str, str, str] | None:
+    try:
+        parts = shlex.split(cmd)
+    except ValueError:
+        parts = cmd.split()
+
+    if not parts:
+        return None
+
+    lower = [Path(p).name.lower() for p in parts]
+    if any(p == "claude" for p in lower):
+        for flag in ("--resume", "-r", "--session-id"):
+            if flag in parts:
+                idx = parts.index(flag)
+                if idx + 1 < len(parts) and UUID_RE.fullmatch(parts[idx + 1]):
+                    source = flag
+                    return ("claude", parts[idx + 1], source)
+        for part in parts:
+            if part.startswith("--resume=") or part.startswith("--session-id="):
+                value = part.split("=", 1)[1]
+                if UUID_RE.fullmatch(value):
+                    return ("claude", value, part.split("=", 1)[0])
+
+    if any(p == "codex" for p in lower):
+        for idx, part in enumerate(parts[:-1]):
+            if part == "resume" and UUID_RE.fullmatch(parts[idx + 1]):
+                return ("codex", parts[idx + 1], "resume")
+
+    return None
+
+
+def ps_rows() -> list[tuple[int, int, str]]:
+    proc = run(["ps", "-eo", "pid=,ppid=,args="], check=False)
+    rows: list[tuple[int, int, str]] = []
+    for line in proc.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        parts = stripped.split(None, 2)
+        if len(parts) < 3:
+            continue
+        try:
+            rows.append((int(parts[0]), int(parts[1]), parts[2]))
+        except ValueError:
+            continue
+    return rows
+
+
+def tmux_panes() -> list[dict[str, str]]:
+    proc = run(
+        [
+            "tmux",
+            "list-panes",
+            "-a",
+            "-F",
+            "#{session_name}\t#{window_index}\t#{window_name}\t#{pane_index}\t#{pane_pid}\t#{pane_current_path}",
+        ],
+        check=False,
+    )
+    panes = []
+    for line in proc.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 6:
+            continue
+        session, window, name, pane, pid, cwd = parts
+        panes.append(
+            {
+                "target": f"{session}:{window}.{pane}",
+                "window": f"{session}:{window}:{name}",
+                "pane_pid": pid,
+                "cwd": cwd,
+            }
+        )
+    return panes
+
+
+def descendants(pid: int, children: dict[int, list[tuple[int, str]]]) -> list[tuple[int, str]]:
+    out: list[tuple[int, str]] = []
+    stack = [pid]
+    seen = set(stack)
+    while stack:
+        current = stack.pop()
+        for child_pid, cmd in children.get(current, []):
+            if child_pid in seen:
+                continue
+            seen.add(child_pid)
+            out.append((child_pid, cmd))
+            stack.append(child_pid)
+    return out
+
+
+def detect_live() -> list[dict[str, str]]:
+    rows = ps_rows()
+    children: dict[int, list[tuple[int, str]]] = {}
+    pid_to_cmd: dict[int, str] = {}
+    for pid, ppid, cmd in rows:
+        pid_to_cmd[pid] = cmd
+        children.setdefault(ppid, []).append((pid, cmd))
+
+    detected: list[dict[str, str]] = []
+    seen = set()
+    for pane in tmux_panes():
+        try:
+            pane_pid = int(pane["pane_pid"])
+        except ValueError:
+            continue
+        candidates = []
+        if pane_pid in pid_to_cmd:
+            candidates.append((pane_pid, pid_to_cmd[pane_pid]))
+        candidates.extend(descendants(pane_pid, children))
+        for child_pid, cmd in candidates:
+            parsed = parse_session_from_cmd(cmd)
+            if not parsed:
+                continue
+            provider, session_id, source = parsed
+            key = (pane["target"], provider, session_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            detected.append(
+                {
+                    "tmux": pane["window"],
+                    "target": pane["target"],
+                    "provider": provider,
+                    "session_id": session_id,
+                    "source": source,
+                    "cwd": pane["cwd"],
+                    "transcript": transcript_for(provider, session_id),
+                    "command": cmd,
+                }
+            )
+    return detected
+
+
+def looks_like_agent_cmd(cmd: str) -> bool:
+    try:
+        parts = shlex.split(cmd)
+    except ValueError:
+        parts = cmd.split()
+    names = [Path(part).name.lower() for part in parts]
+    if any(name in {"claude", "claude-yolo", "codex"} for name in names):
+        return True
+    return "/codex" in cmd or " @openai/codex" in cmd
+
+
+def detect_agent_panes_without_id() -> list[dict[str, str]]:
+    rows = ps_rows()
+    children: dict[int, list[tuple[int, str]]] = {}
+    pid_to_cmd: dict[int, str] = {}
+    for pid, ppid, cmd in rows:
+        pid_to_cmd[pid] = cmd
+        children.setdefault(ppid, []).append((pid, cmd))
+
+    unknown = []
+    for pane in tmux_panes():
+        try:
+            pane_pid = int(pane["pane_pid"])
+        except ValueError:
+            continue
+        candidates = []
+        if pane_pid in pid_to_cmd:
+            candidates.append((pane_pid, pid_to_cmd[pane_pid]))
+        candidates.extend(descendants(pane_pid, children))
+
+        has_known_id = False
+        first_agent_cmd = ""
+        for _pid, cmd in candidates:
+            if parse_session_from_cmd(cmd):
+                has_known_id = True
+                break
+            if not first_agent_cmd and looks_like_agent_cmd(cmd):
+                first_agent_cmd = cmd
+        if first_agent_cmd and not has_known_id:
+            unknown.append(
+                {
+                    "tmux": pane["window"],
+                    "target": pane["target"],
+                    "cwd": pane["cwd"],
+                    "command": first_agent_cmd,
+                }
+            )
+    return unknown
+
+
+def find_codex_token(token: str) -> list[tuple[str, str]]:
+    found = []
+    for path in sorted(CODEX_SESSIONS.glob("**/*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
+        token_seen = token in path.name
+        session_id = ""
+        try:
+            with path.open(errors="replace") as fh:
+                for line in fh:
+                    if token in line:
+                        token_seen = True
+                    if not session_id:
+                        try:
+                            event = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if event.get("type") == "session_meta":
+                            payload = event.get("payload") or {}
+                            session_id = payload.get("id") or ""
+        except OSError:
+            continue
+        if not token_seen:
+            continue
+        found.append((session_id, str(path)))
+    return found
+
+
+def busy_tasks() -> list[Path]:
+    if not BUSY_ROOT.exists():
+        return []
+    return sorted(path for path in BUSY_ROOT.iterdir() if path.is_dir())
+
+
+def unescape_md(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == "`" and value[-1] == "`":
+        value = value[1:-1]
+    return value.replace("\\|", "|").replace("\\`", "`").strip()
+
+
+def split_md_row(line: str) -> list[str]:
+    line = line.strip()
+    if line.startswith("|"):
+        line = line[1:]
+    if line.endswith("|"):
+        line = line[:-1]
+
+    cells: list[str] = []
+    current = []
+    escaped = False
+    for char in line:
+        if escaped:
+            current.append("\\" + char if char not in "|`" else char)
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == "|":
+            cells.append(unescape_md("".join(current)))
+            current = []
+        else:
+            current.append(char)
+    if escaped:
+        current.append("\\")
+    cells.append(unescape_md("".join(current)))
+    return cells
+
+
+def parse_context_value(line: str) -> tuple[str, str] | None:
+    match = re.match(r"^-\s+([^:]+):\s*(.*)$", line.strip())
+    if not match:
+        return None
+    key = match.group(1).strip().lower()
+    value = unescape_md(match.group(2).strip())
+    return key, value
+
+
+def parse_resume(path: Path) -> dict:
+    text = path.read_text(errors="replace") if path.exists() else ""
+    lines = text.splitlines()
+    task = path.parent.name
+    parsed = {
+        "task": task,
+        "resume_path": str(path),
+        "updated": "",
+        "canonical_cwd": "",
+        "context": {
+            "task_dir": str(path.parent),
+            "worktree": "",
+            "branch": "",
+            "pr": "",
+            "gateway": "",
+        },
+        "sessions": [],
+        "warnings": [],
+        "standard": False,
+    }
+
+    for line in lines:
+        if line.startswith("Updated:"):
+            parsed["updated"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Canonical cwd:"):
+            parsed["canonical_cwd"] = line.split(":", 1)[1].strip()
+
+    in_context = False
+    for line in lines:
+        if line.strip() == "## Work Context":
+            in_context = True
+            continue
+        if in_context and line.startswith("## "):
+            break
+        if in_context:
+            item = parse_context_value(line)
+            if not item:
+                continue
+            key, value = item
+            if key == "task dir":
+                parsed["context"]["task_dir"] = value
+            elif key == "worktree":
+                parsed["context"]["worktree"] = value
+            elif key == "branch":
+                parsed["context"]["branch"] = value
+            elif key in ("pr / issue", "pr", "issue"):
+                parsed["context"]["pr"] = value
+            elif key == "gateway route":
+                parsed["context"]["gateway"] = value
+
+    header_index = -1
+    for idx, line in enumerate(lines):
+        if line.strip().startswith("| Provider | Role | Session ID |"):
+            header_index = idx
+            break
+
+    if header_index == -1:
+        if text.strip():
+            parsed["warnings"].append("resume.md is not in the standard session table format")
+        return parsed
+
+    parsed["standard"] = True
+    for line in lines[header_index + 2 :]:
+        stripped = line.strip()
+        if not stripped or not stripped.startswith("|"):
+            break
+        cells = split_md_row(stripped)
+        if len(cells) < 8:
+            parsed["warnings"].append(f"could not parse session row: {stripped[:120]}")
+            continue
+        provider, role, session_id, resume_command, tmux, status, transcript, notes = cells[:8]
+        if not session_id:
+            continue
+        parsed["sessions"].append(
+            {
+                "task": task,
+                "resume_path": str(path),
+                "provider": provider,
+                "role": role,
+                "session_id": session_id,
+                "resume_command": resume_command,
+                "tmux": tmux,
+                "status": status,
+                "transcript": transcript,
+                "notes": notes,
+                "context": parsed["context"],
+                "updated": parsed["updated"],
+                "canonical_cwd": parsed["canonical_cwd"],
+            }
+        )
+    return parsed
+
+
+def normalize_resume(path: Path) -> bool:
+    parsed = parse_resume(path)
+    if parsed["standard"]:
+        return False
+    old_text = path.read_text(errors="replace") if path.exists() else ""
+    preserved = ""
+    if old_text.strip():
+        preserved = "\n## Previous Resume Notes\n\n"
+        preserved += "\n".join(f"> {line}" if line else ">" for line in old_text.splitlines())
+        preserved += "\n"
+    text = f"""# Resume
+
+Updated: {utc_now()}
+Canonical cwd: /workspace
+
+## Sessions
+
+| Provider | Role | Session ID | Resume Command | Tmux | Status | Transcript | Notes |
+|---|---|---|---|---|---|---|---|
+
+## Work Context
+
+- Task dir: `{path.parent}`
+- Worktree: ``
+- Branch: ``
+- PR / issue: ``
+- Gateway route: ``
+
+## Current State
+
+- Standard session metadata initialized for `{path.parent.name}`.
+
+## Next Step
+
+- Update this section before pausing or handing off the task.
+
+## Stale Sessions
+
+- None recorded.
+{preserved}"""
+    path.write_text(text)
+    return True
+
+
+def build_snapshot() -> dict:
+    task_paths = busy_tasks()
+    resume_paths = {path.parent.name: path for path in BUSY_ROOT.glob("*/resume.md")}
+    parsed_resumes = [parse_resume(path) for path in sorted(resume_paths.values())]
+    recorded_sessions = [session for resume in parsed_resumes for session in resume["sessions"]]
+    live_sessions = detect_live()
+    live_agent_panes_without_id = detect_agent_panes_without_id()
+
+    recorded_by_id: dict[str, list[dict]] = {}
+    for session in recorded_sessions:
+        recorded_by_id.setdefault(session["session_id"].lower(), []).append(session)
+    recorded_tmux = {
+        session.get("tmux", "")
+        for session in recorded_sessions
+        if session.get("tmux") and UUID_RE.fullmatch(session.get("session_id", ""))
+    }
+    live_agent_panes_without_id = [
+        pane for pane in live_agent_panes_without_id if pane.get("tmux") not in recorded_tmux
+    ]
+
+    live_by_id: dict[str, list[dict]] = {}
+    for session in live_sessions:
+        live_by_id.setdefault(session["session_id"].lower(), []).append(session)
+
+    live_recorded = []
+    recorded_not_live = []
+    for session in recorded_sessions:
+        live_matches = live_by_id.get(session["session_id"].lower(), [])
+        if live_matches:
+            for match in live_matches:
+                enriched = dict(session)
+                enriched["live"] = match
+                live_recorded.append(enriched)
+        else:
+            recorded_not_live.append(session)
+
+    live_unrecorded = []
+    for session in live_sessions:
+        if session["session_id"].lower() not in recorded_by_id:
+            live_unrecorded.append(session)
+
+    missing_resume = [path.name for path in task_paths if path.name not in resume_paths]
+    warnings = []
+    for resume in parsed_resumes:
+        for warning in resume["warnings"]:
+            warnings.append({"task": resume["task"], "resume_path": resume["resume_path"], "warning": warning})
+
+    return {
+        "generated_at": utc_now(),
+        "busy_task_count": len(task_paths),
+        "recorded_resume_count": len(resume_paths),
+        "recorded_session_count": len(recorded_sessions),
+        "live_detected_count": len(live_sessions),
+        "live_agent_panes_without_id_count": len(live_agent_panes_without_id),
+        "live_recorded_count": len(live_recorded),
+        "recorded_not_live_count": len(recorded_not_live),
+        "live_unrecorded_count": len(live_unrecorded),
+        "missing_resume_count": len(missing_resume),
+        "tasks": [path.name for path in task_paths],
+        "missing_resume": missing_resume,
+        "resumes": parsed_resumes,
+        "recorded_sessions": recorded_sessions,
+        "live_sessions": live_sessions,
+        "live_agent_panes_without_id": live_agent_panes_without_id,
+        "live_recorded": live_recorded,
+        "recorded_not_live": recorded_not_live,
+        "live_unrecorded": live_unrecorded,
+        "warnings": warnings,
+    }
+
+
+def short(value: str, limit: int = 96) -> str:
+    value = value or ""
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1] + "..."
+
+
+def md_link(label: str, path: str) -> str:
+    return f"[{md(label)}]({md(path)})"
+
+
+def render_sessions_markdown(snapshot: dict) -> str:
+    generated = snapshot["generated_at"]
+    lines = [
+        "# Agent Sessions",
+        "",
+        f"Generated: {generated}",
+        "",
+        "This file is generated by `/workspace/tools/agents/sessionctl index`.",
+        "Do not hand-edit it; update task-local `busy/<task>/resume.md` files instead.",
+        "",
+        "## Summary",
+        "",
+        f"- Busy task dirs: {snapshot['busy_task_count']}",
+        f"- Task resume files: {snapshot['recorded_resume_count']}",
+        f"- Recorded sessions: {snapshot['recorded_session_count']}",
+        f"- Live sessions detected from tmux/process args: {snapshot['live_detected_count']}",
+        f"- Live agent panes without known session IDs: {snapshot['live_agent_panes_without_id_count']}",
+        f"- Live and recorded sessions: {snapshot['live_recorded_count']}",
+        f"- Recorded but not live sessions: {snapshot['recorded_not_live_count']}",
+        f"- Live but unrecorded sessions: {snapshot['live_unrecorded_count']}",
+        f"- Busy dirs missing `resume.md`: {snapshot['missing_resume_count']}",
+        "",
+        "## Live Recorded Sessions",
+        "",
+        "| Task | Provider | Role | Session ID | Tmux | CWD | Transcript | Resume File | Notes |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    if snapshot["live_recorded"]:
+        for session in snapshot["live_recorded"]:
+            live = session["live"]
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        md(session["task"]),
+                        md(session["provider"]),
+                        md(session["role"]),
+                        code(session["session_id"]),
+                        code(live.get("tmux") or session.get("tmux")),
+                        code(live.get("cwd")),
+                        code(session.get("transcript") or live.get("transcript")),
+                        md_link("resume.md", session["resume_path"]),
+                        md(short(session.get("notes", ""))),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |  |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Live Unrecorded Sessions",
+            "",
+            "| Tmux | Provider | Session ID | CWD | Transcript | Action |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    if snapshot["live_unrecorded"]:
+        for session in snapshot["live_unrecorded"]:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        code(session.get("tmux")),
+                        md(session.get("provider")),
+                        code(session.get("session_id")),
+                        code(session.get("cwd")),
+                        code(session.get("transcript")),
+                        "Record with `sessionctl record <task> ...` or close if obsolete.",
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Live Agent Panes Needing IDs",
+            "",
+            "These panes appear to run Claude/Codex but do not expose a session ID in process args.",
+            "Use the provider UI (`/status` where available), transcript lookup, or restart through `sessionctl` if the work must be recoverable.",
+            "",
+            "| Tmux | CWD | Command | Action |",
+            "|---|---|---|---|",
+        ]
+    )
+    if snapshot["live_agent_panes_without_id"]:
+        for pane in snapshot["live_agent_panes_without_id"]:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        code(pane.get("tmux")),
+                        code(pane.get("cwd")),
+                        code(short(pane.get("command", ""), 140)),
+                        "Record session ID in the owning task's `resume.md`.",
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("|  |  |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Recorded Not Live",
+            "",
+            "| Task | Provider | Role | Status | Session ID | Resume Command | Transcript | Resume File |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+    )
+    if snapshot["recorded_not_live"]:
+        for session in snapshot["recorded_not_live"]:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        md(session["task"]),
+                        md(session["provider"]),
+                        md(session["role"]),
+                        md(session.get("status")),
+                        code(session["session_id"]),
+                        code(session.get("resume_command")),
+                        code(session.get("transcript")),
+                        md_link("resume.md", session["resume_path"]),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Busy Dirs Missing Resume",
+            "",
+        ]
+    )
+    if snapshot["missing_resume"]:
+        lines.extend(f"- `{task}`" for task in snapshot["missing_resume"])
+    else:
+        lines.append("- None")
+
+    lines.extend(["", "## Resume Warnings", ""])
+    if snapshot["warnings"]:
+        for warning in snapshot["warnings"]:
+            lines.append(f"- `{warning['task']}`: {warning['warning']} ({warning['resume_path']})")
+    else:
+        lines.append("- None")
+
+    lines.extend(
+        [
+            "",
+            "## Recovery Workflow",
+            "",
+            "1. Read `/workspace/detection-platform-metal-work/ACTIVE.md`.",
+            "2. Read this generated file for the global session view.",
+            "3. Open the relevant task-local `resume.md` for detailed next steps.",
+            "4. Recreate tmux windows from the recorded resume commands, always starting from `/workspace`.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def write_index(snapshot: dict, markdown_path: Path = SESSIONS_FILE, json_path: Path = SESSIONS_JSON) -> None:
+    markdown_path.write_text(render_sessions_markdown(snapshot))
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n")
+
+
+def cmd_init(args: argparse.Namespace) -> None:
+    path = ensure_resume(
+        args.task,
+        worktree=args.worktree,
+        branch=args.branch,
+        pr=args.pr,
+        gateway=args.gateway,
+        note=args.note,
+    )
+    print(path)
+
+
+def cmd_record(args: argparse.Namespace) -> None:
+    transcript = args.transcript
+    if not transcript and UUID_RE.fullmatch(args.session_id):
+        transcript = transcript_for(args.provider, args.session_id)
+    path = record_session(
+        args.task,
+        provider=args.provider,
+        role=args.role,
+        session_id=args.session_id,
+        resume_command=args.resume_command,
+        tmux=args.tmux,
+        status=args.status,
+        transcript=transcript,
+        notes=args.notes,
+        worktree=args.worktree,
+        branch=args.branch,
+        pr=args.pr,
+        gateway=args.gateway,
+    )
+    print(path)
+
+
+def cmd_detect(args: argparse.Namespace) -> None:
+    detected = detect_live()
+    if args.json:
+        print(json.dumps(detected, indent=2, sort_keys=True))
+        return
+    if not detected:
+        print("No live Claude/Codex resumed sessions detected from tmux process args.")
+        return
+    print("Tmux\tProvider\tSession ID\tSource\tCWD\tTranscript")
+    for row in detected:
+        print(
+            f"{row['tmux']}\t{row['provider']}\t{row['session_id']}\t{row['source']}\t{row['cwd']}\t{row['transcript']}"
+        )
+
+
+def cmd_index(args: argparse.Namespace) -> None:
+    snapshot = build_snapshot()
+    markdown = render_sessions_markdown(snapshot)
+    if args.stdout:
+        print(markdown, end="")
+        return
+    write_index(snapshot, markdown_path=Path(args.output), json_path=Path(args.json_output))
+    print(args.output)
+    print(args.json_output)
+
+
+def cmd_reconcile(args: argparse.Namespace) -> None:
+    created = []
+    normalized = []
+    for path in busy_tasks():
+        resume = path / "resume.md"
+        if not resume.exists():
+            ensure_resume(
+                str(path),
+                note=(
+                    "No active agent sessions recorded yet. If a live pane owns this task, "
+                    "record it with `/workspace/tools/agents/sessionctl record`."
+                ),
+            )
+            created.append(str(resume))
+        elif args.normalize and normalize_resume(resume):
+            normalized.append(str(resume))
+
+    snapshot = build_snapshot()
+    write_index(snapshot, markdown_path=Path(args.output), json_path=Path(args.json_output))
+
+    print(f"created_resume_files={len(created)}")
+    for path in created:
+        print(f"created {path}")
+    print(f"normalized_resume_files={len(normalized)}")
+    for path in normalized:
+        print(f"normalized {path}")
+    print(f"wrote {args.output}")
+    print(f"wrote {args.json_output}")
+
+
+def cmd_transcript(args: argparse.Namespace) -> None:
+    path = transcript_for(args.provider, args.session_id)
+    if not path:
+        die(f"no transcript found for {args.provider} session {args.session_id}")
+    print(path)
+
+
+def cmd_codex_token(args: argparse.Namespace) -> None:
+    deadline = time.time() + args.wait
+    matches: list[tuple[str, str]] = []
+    while True:
+        matches = find_codex_token(args.token)
+        if matches:
+            break
+        if args.wait <= 0 or time.time() >= deadline:
+            break
+        time.sleep(2)
+    if not matches:
+        die(f"no Codex transcript found containing token: {args.token}")
+    for session_id, path in matches:
+        print(f"{session_id}\t{path}")
+
+
+def cmd_launch_claude(args: argparse.Namespace) -> None:
+    session_id = args.session_id or str(uuid.uuid4())
+    claude_args = ["claude-yolo", "--session-id", session_id]
+    if args.name:
+        claude_args.extend(["--name", args.name])
+    command = "bash -ic " + shlex.quote("cd /workspace && " + " ".join(shlex.quote(a) for a in claude_args))
+    resume_command = f"cd /workspace && claude-yolo --resume {session_id}"
+    if args.dry_run:
+        print(command)
+        print(resume_command)
+        return
+    else:
+        run(["tmux", "new-window", "-d", "-t", args.tmux_target, "-n", args.window, command])
+    path = record_session(
+        args.task,
+        provider="Claude",
+        role=args.role,
+        session_id=session_id,
+        resume_command=resume_command,
+        tmux=f"{args.tmux_target}{args.window}",
+        status="active" if not args.dry_run else "planned",
+        transcript=transcript_for("claude", session_id),
+        notes=args.notes,
+    )
+    print(path)
+
+
+def cmd_launch_codex(args: argparse.Namespace) -> None:
+    token = args.token or f"agent-session:{uuid.uuid4()}"
+    prompt = args.prompt or (
+        f"Workspace session tracking token: {token}\n\n"
+        "Before doing task work, acknowledge this token in one short sentence, then wait for task-specific instructions."
+    )
+    command = "cd /workspace && codex --yolo -C /workspace " + shlex.quote(prompt)
+    if args.dry_run:
+        print(command)
+        print(token)
+        return
+
+    run(["tmux", "new-window", "-d", "-t", args.tmux_target, "-n", args.window, command])
+    session_id = ""
+    transcript = ""
+    deadline = time.time() + args.wait
+    while time.time() <= deadline:
+        matches = find_codex_token(token)
+        if matches and matches[0][0]:
+            session_id, transcript = matches[0]
+            break
+        time.sleep(2)
+
+    if session_id:
+        resume_command = f"cd /workspace && codex --yolo resume {session_id}"
+        status = "active"
+        notes = args.notes or f"Codex ID discovered from tracking token `{token}`."
+    else:
+        session_id = f"pending:{token}"
+        resume_command = f"pending: /workspace/tools/agents/sessionctl codex-id-for-token {shlex.quote(token)}"
+        status = "pending-id"
+        notes = args.notes or f"Temporary row; replace after Codex transcript contains tracking token `{token}`."
+
+    path = record_session(
+        args.task,
+        provider="Codex",
+        role=args.role,
+        session_id=session_id,
+        resume_command=resume_command,
+        tmux=f"{args.tmux_target}{args.window}",
+        status=status,
+        transcript=transcript,
+        notes=notes,
+    )
+    print(path)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Record and recover Claude/Codex session IDs for workspace tasks.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    init = sub.add_parser("init", help="Create busy/<task>/resume.md if missing")
+    init.add_argument("task")
+    init.add_argument("--worktree", default="")
+    init.add_argument("--branch", default="")
+    init.add_argument("--pr", default="")
+    init.add_argument("--gateway", default="")
+    init.add_argument("--note", default="")
+    init.set_defaults(func=cmd_init)
+
+    record = sub.add_parser("record", help="Add or update one session row in resume.md")
+    record.add_argument("task")
+    record.add_argument("--provider", required=True, choices=["Claude", "Codex", "claude", "codex"])
+    record.add_argument("--role", required=True)
+    record.add_argument("--session-id", required=True)
+    record.add_argument("--resume-command", required=True)
+    record.add_argument("--tmux", default="")
+    record.add_argument("--status", default="active")
+    record.add_argument("--transcript", default="")
+    record.add_argument("--notes", default="")
+    record.add_argument("--worktree", default="")
+    record.add_argument("--branch", default="")
+    record.add_argument("--pr", default="")
+    record.add_argument("--gateway", default="")
+    record.set_defaults(func=cmd_record)
+
+    detect = sub.add_parser("detect", help="Detect live resumed Claude/Codex sessions from tmux process args")
+    detect.add_argument("--json", action="store_true")
+    detect.set_defaults(func=cmd_detect)
+
+    index = sub.add_parser("index", help="Generate the central SESSIONS.md lookup from task resume files and live tmux state")
+    index.add_argument("--stdout", action="store_true", help="Print markdown instead of writing files")
+    index.add_argument("--output", default=str(SESSIONS_FILE))
+    index.add_argument("--json-output", default=str(SESSIONS_JSON))
+    index.set_defaults(func=cmd_index)
+
+    reconcile = sub.add_parser("reconcile", help="Create missing resume.md files, normalize old ones, and regenerate SESSIONS.md")
+    reconcile.add_argument("--no-normalize", dest="normalize", action="store_false", help="Do not normalize nonstandard resume.md files")
+    reconcile.add_argument("--output", default=str(SESSIONS_FILE))
+    reconcile.add_argument("--json-output", default=str(SESSIONS_JSON))
+    reconcile.set_defaults(func=cmd_reconcile, normalize=True)
+
+    transcript = sub.add_parser("transcript", help="Print transcript path for a known session ID")
+    transcript.add_argument("provider", choices=["Claude", "Codex", "claude", "codex"])
+    transcript.add_argument("session_id")
+    transcript.set_defaults(func=cmd_transcript)
+
+    codex_token = sub.add_parser("codex-id-for-token", help="Find a Codex session ID by a unique prompt token")
+    codex_token.add_argument("token")
+    codex_token.add_argument("--wait", type=int, default=0, help="Seconds to wait for a transcript to appear")
+    codex_token.set_defaults(func=cmd_codex_token)
+
+    launch_claude = sub.add_parser("launch-claude", help="Launch Claude in tmux with a preassigned session ID and record it")
+    launch_claude.add_argument("task")
+    launch_claude.add_argument("window")
+    launch_claude.add_argument("--role", required=True)
+    launch_claude.add_argument("--session-id", default="")
+    launch_claude.add_argument("--name", default="")
+    launch_claude.add_argument("--notes", default="")
+    launch_claude.add_argument("--tmux-target", default="0:")
+    launch_claude.add_argument("--dry-run", action="store_true")
+    launch_claude.set_defaults(func=cmd_launch_claude)
+
+    launch_codex = sub.add_parser("launch-codex", help="Launch Codex in tmux with a tracking token and record the discovered ID")
+    launch_codex.add_argument("task")
+    launch_codex.add_argument("window")
+    launch_codex.add_argument("--role", required=True)
+    launch_codex.add_argument("--token", default="")
+    launch_codex.add_argument("--prompt", default="")
+    launch_codex.add_argument("--notes", default="")
+    launch_codex.add_argument("--tmux-target", default="0:")
+    launch_codex.add_argument("--wait", type=int, default=60)
+    launch_codex.add_argument("--dry-run", action="store_true")
+    launch_codex.set_defaults(func=cmd_launch_codex)
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

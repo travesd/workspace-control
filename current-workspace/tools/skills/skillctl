@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+CANONICAL_DIR="${SKILLCTL_CANONICAL_DIR:-$ROOT/agent-skills/skills}"
+CLAUDE_DIR="${SKILLCTL_CLAUDE_DIR:-$ROOT/.claude/skills}"
+CODEX_DIR="${SKILLCTL_CODEX_DIR:-$ROOT/.agents/skills}"
+
+usage() {
+  cat <<'USAGE'
+Usage: skillctl <command>
+
+Commands:
+  inventory   List canonical shared skills and provider mirrors
+  validate    Validate canonical shared skills
+  sync        Validate and copy canonical shared skills to Claude/Codex mirrors
+USAGE
+}
+
+skill_dirs() {
+  if [ ! -d "$CANONICAL_DIR" ]; then
+    return 0
+  fi
+  find "$CANONICAL_DIR" -mindepth 1 -maxdepth 1 -type d | sort
+}
+
+frontmatter_field() {
+  local file="$1"
+  local field="$2"
+  awk -v field="$field" '
+    NR == 1 {
+      if ($0 != "---") {
+        exit 0
+      }
+      in_fm = 1
+      next
+    }
+    in_fm && $0 == "---" {
+      exit 0
+    }
+    in_fm {
+      pattern = "^" field ":[[:space:]]*"
+      if ($0 ~ pattern) {
+        sub(pattern, "", $0)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+        gsub(/^"|"$/, "", $0)
+        print
+        exit 0
+      }
+    }
+  ' "$file"
+}
+
+frontmatter_keys() {
+  local file="$1"
+  awk '
+    NR == 1 {
+      if ($0 != "---") {
+        exit 0
+      }
+      in_fm = 1
+      next
+    }
+    in_fm && $0 == "---" {
+      exit 0
+    }
+    in_fm && $0 ~ /^[A-Za-z0-9_-]+:[[:space:]]*/ {
+      sub(/:.*/, "", $0)
+      print
+    }
+  ' "$file"
+}
+
+validate_openai_yaml() {
+  local skill_dir="$1"
+  local name="$2"
+  local yaml="$skill_dir/agents/openai.yaml"
+
+  if [ ! -f "$yaml" ]; then
+    return 0
+  fi
+
+  if ! grep -q "default_prompt: .*\\\$$name" "$yaml"; then
+    printf 'ERROR: %s default_prompt should mention $%s\n' "$yaml" "$name" >&2
+    return 1
+  fi
+}
+
+validate_skill() {
+  local skill_dir="$1"
+  local base
+  local skill_file
+  local name
+  local description
+  local failed=0
+
+  base="$(basename "$skill_dir")"
+  skill_file="$skill_dir/SKILL.md"
+
+  if [[ ! "$base" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    printf 'ERROR: %s is not lowercase kebab-case\n' "$base" >&2
+    failed=1
+  fi
+
+  if [ ! -f "$skill_file" ]; then
+    printf 'ERROR: %s missing SKILL.md\n' "$skill_dir" >&2
+    return 1
+  fi
+
+  name="$(frontmatter_field "$skill_file" name)"
+  description="$(frontmatter_field "$skill_file" description)"
+
+  while IFS= read -r key; do
+    case "$key" in
+      name|description)
+        ;;
+      *)
+        printf 'ERROR: %s frontmatter key "%s" is not portable for shared skills\n' "$skill_file" "$key" >&2
+        failed=1
+        ;;
+    esac
+  done < <(frontmatter_keys "$skill_file")
+
+  if [ -z "$name" ]; then
+    printf 'ERROR: %s missing frontmatter name\n' "$skill_file" >&2
+    failed=1
+  elif [ "$name" != "$base" ]; then
+    printf 'ERROR: %s name "%s" does not match folder "%s"\n' "$skill_file" "$name" "$base" >&2
+    failed=1
+  fi
+
+  if [ -z "$description" ]; then
+    printf 'ERROR: %s missing frontmatter description\n' "$skill_file" >&2
+    failed=1
+  elif [ "${#description}" -lt 50 ]; then
+    printf 'ERROR: %s description is too short to be a useful trigger\n' "$skill_file" >&2
+    failed=1
+  fi
+
+  if grep -nE '^(allowed-tools|tools):|claude -p|mcp__|(^|[^[:alnum:]_])Task\(' "$skill_file" >/dev/null; then
+    printf 'ERROR: %s contains provider-specific tool instructions\n' "$skill_file" >&2
+    failed=1
+  fi
+
+  if grep -RInE '(api[_-]?key|password|secret|token)[[:space:]]*=' "$skill_dir" >/dev/null; then
+    printf 'ERROR: %s appears to contain hardcoded secret assignment text\n' "$skill_dir" >&2
+    failed=1
+  fi
+
+  if [ -d "$skill_dir/scripts" ]; then
+    while IFS= read -r script; do
+      if [ ! -x "$script" ]; then
+        printf 'ERROR: %s is not executable\n' "$script" >&2
+        failed=1
+      fi
+    done < <(find "$skill_dir/scripts" -type f | sort)
+  fi
+
+  if ! validate_openai_yaml "$skill_dir" "$base"; then
+    failed=1
+  fi
+
+  if [ "$failed" -eq 0 ]; then
+    printf 'OK: %s\n' "$base"
+  fi
+
+  return "$failed"
+}
+
+cmd_inventory() {
+  printf 'canonical=%s\n' "$CANONICAL_DIR"
+  printf 'claude_mirror=%s\n' "$CLAUDE_DIR"
+  printf 'codex_mirror=%s\n' "$CODEX_DIR"
+  skill_dirs | while IFS= read -r skill_dir; do
+    [ -n "$skill_dir" ] || continue
+    printf 'skill=%s\n' "$(basename "$skill_dir")"
+  done
+}
+
+cmd_validate() {
+  local failed=0
+  local count=0
+
+  if [ ! -d "$CANONICAL_DIR" ]; then
+    printf 'ERROR: canonical skill directory does not exist: %s\n' "$CANONICAL_DIR" >&2
+    return 1
+  fi
+
+  while IFS= read -r skill_dir; do
+    [ -n "$skill_dir" ] || continue
+    count=$((count + 1))
+    if ! validate_skill "$skill_dir"; then
+      failed=1
+    fi
+  done < <(skill_dirs)
+
+  if [ "$count" -eq 0 ]; then
+    printf 'ERROR: no canonical shared skills found in %s\n' "$CANONICAL_DIR" >&2
+    return 1
+  fi
+
+  return "$failed"
+}
+
+copy_skill() {
+  local src="$1"
+  local target_root="$2"
+  local name
+  local dst
+
+  name="$(basename "$src")"
+  dst="$target_root/$name"
+  mkdir -p "$dst"
+
+  if [ -e "$dst/SKILL.md" ] && [ ! -f "$dst/.skillctl-managed" ]; then
+    printf 'ERROR: refusing to overwrite unmanaged skill mirror: %s\n' "$dst" >&2
+    return 1
+  fi
+
+  cp -a "$src"/. "$dst"/
+  printf 'source=%s\n' "$src" > "$dst/.skillctl-managed"
+  printf 'synced=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$dst/.skillctl-managed"
+  printf 'synced %s -> %s\n' "$name" "$target_root"
+}
+
+cmd_sync() {
+  cmd_validate
+
+  mkdir -p "$CLAUDE_DIR" "$CODEX_DIR"
+
+  while IFS= read -r skill_dir; do
+    [ -n "$skill_dir" ] || continue
+    copy_skill "$skill_dir" "$CLAUDE_DIR"
+    copy_skill "$skill_dir" "$CODEX_DIR"
+  done < <(skill_dirs)
+}
+
+main() {
+  local command="${1:-}"
+
+  case "$command" in
+    inventory)
+      cmd_inventory
+      ;;
+    validate)
+      cmd_validate
+      ;;
+    sync)
+      cmd_sync
+      ;;
+    -h|--help|help|"")
+      usage
+      ;;
+    *)
+      usage >&2
+      return 2
+      ;;
+  esac
+}
+
+main "$@"

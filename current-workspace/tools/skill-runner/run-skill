@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+IMAGE="${SKILL_RUNNER_IMAGE:-detection-skill-runner:latest}"
+CF_VOLUME="${CLOUDFLARED_VOLUME:-detection-db-cloudflared}"
+CLAUDE_BIN="${CLAUDE_BIN:-$HOME/.local/bin/claude}"
+CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+CLAUDE_MOUNT_MODE="${CLAUDE_MOUNT_MODE:-minimal}"   # minimal | full
+DB_ENV_FILE="${DB_ENV_FILE:-$ROOT/db.env}"
+DB_HOSTNAME="${DB_HOSTNAME:-db-prod.phishsonar.com}"
+
+usage() {
+  cat <<USAGE >&2
+Usage: $0 <repo-path> <skill-name> [skill-args...]
+
+Runs an upstream agent skill inside the workspace skill-runner container.
+
+Layout:
+  --network                : default (container runs its own cloudflared)
+  /workspace               : mounted from \$WORKSPACE_ROOT (default $ROOT)
+  /usr/local/bin/claude    : mounted from \$CLAUDE_BIN (default $CLAUDE_BIN), ro
+  /home/nonroot/.cloudflared : Docker volume \$CLOUDFLARED_VOLUME
+                             (default $CF_VOLUME)
+  /root/.claude/...        : depends on CLAUDE_MOUNT_MODE
+                               minimal -> .credentials.json (rw) + settings.json (ro)
+                               full    -> entire \$CLAUDE_HOME, rw
+
+Environment:
+  AGENT_DB_PASSWORD set from psql_password in \$DB_ENV_FILE.
+  HOME=/root inside container.
+  Cloudflared starts as UID 65532 with HOME=/home/nonroot for
+  \$DB_HOSTNAME -> localhost:25432 on container start.
+  Disable with SKIP_DB_TUNNEL=1.
+
+Pre-flight (one-time, on host):
+  /workspace/tools/db/dbctl auth prod
+  /workspace/tools/access/accessctl login prod dashboard
+  docker build -t $IMAGE /workspace/tools/skill-runner/
+USAGE
+  exit 1
+}
+
+[ $# -ge 2 ] || usage
+
+REPO="$1"; shift
+SKILL="$1"; shift
+SKILL_DIR="$REPO/.claude/skills/$SKILL"
+[ -d "$SKILL_DIR" ] || { echo "skill-runner: skill not found at $SKILL_DIR" >&2; exit 2; }
+[ -x "$CLAUDE_BIN" ] || { echo "skill-runner: claude CLI not found at $CLAUDE_BIN" >&2; exit 2; }
+[ -f "$DB_ENV_FILE" ] || { echo "skill-runner: missing $DB_ENV_FILE" >&2; exit 3; }
+
+# shellcheck disable=SC1090
+. "$DB_ENV_FILE"
+: "${psql_password:?skill-runner: psql_password missing in $DB_ENV_FILE}"
+
+claude_mounts=()
+case "$CLAUDE_MOUNT_MODE" in
+  minimal)
+    [ -f "$CLAUDE_HOME/.credentials.json" ] || { echo "skill-runner: missing $CLAUDE_HOME/.credentials.json" >&2; exit 3; }
+    claude_mounts+=( -v "$CLAUDE_HOME/.credentials.json:/root/.claude/.credentials.json:rw" )
+    [ -f "$CLAUDE_HOME/settings.json" ] && \
+      claude_mounts+=( -v "$CLAUDE_HOME/settings.json:/root/.claude/settings.json:ro" )
+    ;;
+  full)
+    claude_mounts+=( -v "$CLAUDE_HOME:/root/.claude" )
+    ;;
+  *)
+    echo "skill-runner: invalid CLAUDE_MOUNT_MODE=$CLAUDE_MOUNT_MODE" >&2; exit 1
+    ;;
+esac
+
+exec docker run --rm -i \
+  -v "$ROOT:/workspace" \
+  -v "$CLAUDE_BIN:/usr/local/bin/claude:ro" \
+  -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+  "${claude_mounts[@]}" \
+  -e AGENT_DB_PASSWORD="$psql_password" \
+  -e DB_HOSTNAME="$DB_HOSTNAME" \
+  -e CLOUDFLARED_HOME=/home/nonroot \
+  -e HOME=/root \
+  ${SKIP_DB_TUNNEL:+-e SKIP_DB_TUNNEL="$SKIP_DB_TUNNEL"} \
+  -w "$SKILL_DIR" \
+  "$IMAGE" \
+  "$@"

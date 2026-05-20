@@ -1,0 +1,832 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+TOOL_DIR="${GATEWAY_TOOL_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+STATE_DIR="${GATEWAY_STATE_DIR:-$ROOT/.agent-gateway}"
+ROUTES_FILE="$STATE_DIR/routes.tsv"
+CONFIG_FILE="$STATE_DIR/nginx.conf"
+INSTANCE_DIR="$STATE_DIR/instances"
+LOCK_DIR="$STATE_DIR"
+CONTAINER="${GATEWAY_CONTAINER:-detection-agent-gateway}"
+IMAGE="${GATEWAY_IMAGE:-nginx:alpine}"
+LISTEN_HOST="${GATEWAY_LISTEN_HOST:-127.0.0.1}"
+LISTEN_PORT="${GATEWAY_LISTEN_PORT:-18000}"
+PROD_UI_PROXY_IMAGE="${GATEWAY_PROD_UI_PROXY_IMAGE:-agent-gateway-prod-ui-proxy:local}"
+CLOUDFLARED_BASE_IMAGE="${CLOUDFLARED_BASE_IMAGE:-cloudflare/cloudflared:latest}"
+CF_VOLUME="${ACCESS_CLOUDFLARED_VOLUME:-${CLOUDFLARED_VOLUME:-detection-db-cloudflared}}"
+CLOUDFLARED_UID="${CLOUDFLARED_UID:-65532}"
+CLOUDFLARED_GID="${CLOUDFLARED_GID:-65532}"
+TOKEN_FIX_IMAGE="${ACCESS_TOKEN_FIX_IMAGE:-alpine:3.20}"
+
+usage() {
+  cat <<'USAGE'
+Usage: /workspace/tools/gateway/gatewayctl <command> [args...]
+
+Workspace host-based gateway and stack launcher for local loopback-bound
+detection-platform-metal instances. State is stored under /workspace/.agent-gateway.
+
+Gateway commands:
+  start                         Start the nginx gateway container
+  stop                          Stop and remove the gateway container
+  restart                       Restart the gateway container
+  reload                        Regenerate config and reload nginx if running
+  status                        Show listener, container, routes, and instances
+  logs [docker logs args...]    Show gateway logs
+  list                          List configured routes
+  add <name> <backend>          Route <name>.localhost to backend
+  remove <name>                 Remove a route
+  url <name>                    Print the gateway URL for a route
+  doctor                        Validate nginx config and test configured routes
+
+Stack commands:
+  stack up <name> <worktree> <ip> [options]
+      Generate a Compose override, start the stack, and add gateway route.
+
+      Options:
+        --service <svc>               Compose service target; repeatable (default: detection-ui-frontend)
+        --all                         Start every Compose service
+        --project <compose-project>   Compose project name (default: dpm_<name>)
+        --tag <tag>                   TAG env for images (default: project)
+        --no-build                    Run docker compose up --no-build
+        --extra-override <path>       Additional Compose override file; repeatable
+        --no-route                    Do not add/reload gateway route
+
+  stack down <name> [--keep-volumes]
+      Tear down the generated stack, remove its route, and delete instance state.
+
+  stack list
+      List generated stack instances.
+
+Proxy commands:
+  proxy up <name> [options]
+      Route <name>.localhost through a local/prod UI proxy. The local frontend
+      remains local, selected API prefixes remain local, and all other /api/*
+      requests go to the Cloudflare Access-authenticated prod dashboard.
+
+      Options:
+        --env <prod|staging>           Dashboard environment (default: prod)
+        --dashboard-url <url>          Override dashboard URL
+        --local-api-prefix <prefix>    Keep this API prefix local; repeatable
+                                      (default: none)
+        --port <port>                  Local proxy port (default: derived from stack IP)
+        --allow-mutate                 Allow non-GET prod API requests
+        --no-build                     Reuse existing proxy image
+
+  proxy down <name>
+      Stop the local/prod UI proxy and restore the normal local frontend route.
+
+  proxy list
+      List active local/prod UI proxies.
+
+Examples:
+  /workspace/tools/gateway/gatewayctl stack up pr9 \
+    /workspace/detection-platform-metal.worktrees/feat-stack-multi-instance \
+    127.0.0.2 --tag latest --no-build
+
+  /workspace/tools/gateway/gatewayctl stack up other /workspace/detection-platform-metal 127.0.0.3
+  /workspace/tools/gateway/gatewayctl stack up full /workspace/detection-platform-metal 127.0.0.4 --all
+  /workspace/tools/gateway/gatewayctl url pr9
+  /workspace/tools/gateway/gatewayctl stack down pr9
+
+Defaults:
+  gateway listen: 127.0.0.1:18000
+  route host:     <name>.localhost:18000
+USAGE
+}
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+info() {
+  echo "gatewayctl: $*" >&2
+}
+
+ensure_state() {
+  mkdir -p "$STATE_DIR" "$INSTANCE_DIR"
+  touch "$ROUTES_FILE"
+}
+
+ensure_image() {
+  if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    info "pulling missing image $IMAGE"
+    docker pull "$IMAGE" >/dev/null
+  fi
+}
+
+ensure_named_image() {
+  local image="$1"
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    info "pulling missing image $image"
+    docker pull "$image" >/dev/null
+  fi
+}
+
+ensure_cf_volume() {
+  docker volume create "$CF_VOLUME" >/dev/null
+  ensure_named_image "$TOKEN_FIX_IMAGE"
+  docker run --rm \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$TOKEN_FIX_IMAGE" sh -lc \
+    "chown -R ${CLOUDFLARED_UID}:${CLOUDFLARED_GID} /home/nonroot/.cloudflared && chmod 700 /home/nonroot/.cloudflared && find /home/nonroot/.cloudflared -maxdepth 1 -type f -exec chmod 600 {} \\;" >/dev/null
+}
+
+ensure_prod_ui_proxy_image() {
+  info "building $PROD_UI_PROXY_IMAGE"
+  docker build \
+    --build-arg "CLOUDFLARED_BASE_IMAGE=$CLOUDFLARED_BASE_IMAGE" \
+    -f "$TOOL_DIR/Dockerfile.prod-ui-proxy" \
+    -t "$PROD_UI_PROXY_IMAGE" \
+    "$TOOL_DIR" >/dev/null
+}
+
+container_exists() {
+  docker inspect "$CONTAINER" >/dev/null 2>&1
+}
+
+container_running() {
+  [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || true)" = "true" ]
+}
+
+validate_name() {
+  local name="$1"
+  case "$name" in
+    *.*) die "name must not contain dots; use 'pr9', not 'pr9.localhost'" ;;
+  esac
+  if ! [[ "$name" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]; then
+    die "name must be lowercase DNS-label text: [a-z0-9-], no leading/trailing hyphen"
+  fi
+}
+
+validate_ip() {
+  local ip="$1"
+  if ! [[ "$ip" =~ ^127\.0\.[0-9]+\.[0-9]+$ ]]; then
+    die "IP must be a loopback address, e.g. 127.0.0.2"
+  fi
+  [ "$ip" != "127.0.0.1" ] || die "127.0.0.1 is reserved for the gateway"
+}
+
+validate_port() {
+  local port="$1"
+  if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1024 ] || [ "$port" -gt 65535 ]; then
+    die "port must be a number between 1024 and 65535"
+  fi
+}
+
+validate_project() {
+  local project="$1"
+  if ! [[ "$project" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+    die "Compose project must match ^[a-z0-9][a-z0-9_-]*$"
+  fi
+}
+
+default_project_for() {
+  local name="$1"
+  printf 'dpm_%s' "${name//-/_}"
+}
+
+normalize_backend() {
+  local backend="$1"
+  backend="${backend#http://}"
+  backend="${backend%/}"
+  if [[ "$backend" =~ ^(127\.0\.[0-9]+\.[0-9]+|localhost):[0-9]+$ ]]; then
+    printf 'http://%s' "$backend"
+    return 0
+  fi
+  die "backend must be loopback host:port, e.g. 127.0.0.2:3000"
+}
+
+compose_dir_for() {
+  local worktree="$1"
+  if [ -f "$worktree/infrastructure/docker/docker-compose.yml" ]; then
+    printf '%s/infrastructure/docker' "$worktree"
+  elif [ -f "$worktree/docker-compose.yml" ]; then
+    printf '%s' "$worktree"
+  else
+    die "could not find docker-compose.yml under $worktree"
+  fi
+}
+
+shell_quote() {
+  printf '%q' "$1"
+}
+
+instance_meta() {
+  local name="$1"
+  printf '%s/%s.env' "$INSTANCE_DIR" "$name"
+}
+
+instance_override() {
+  local name="$1"
+  printf '%s/%s.override.yml' "$INSTANCE_DIR" "$name"
+}
+
+proxy_meta() {
+  local name="$1"
+  printf '%s/%s.proxy' "$INSTANCE_DIR" "$name"
+}
+
+proxy_container_name() {
+  local name="$1"
+  printf 'gateway-prod-ui-proxy-%s' "$name"
+}
+
+proxy_port_for_ip() {
+  local ip="$1"
+  local octet="${ip##*.}"
+  printf '19%03d' "$octet"
+}
+
+dashboard_url_for_env() {
+  case "$1" in
+    prod|production) printf '%s' "https://dashboard-prod.phishsonar.com" ;;
+    staging|stage) printf '%s' "https://dashboard-staging.phishsonar.com" ;;
+    *) die "unknown dashboard env '$1' (use prod or staging)" ;;
+  esac
+}
+
+route_backend() {
+  local name="$1"
+  [ -f "$ROUTES_FILE" ] || return 1
+  awk -F '\t' -v name="$name" '$1 == name { print $2; found=1; exit } END { exit found ? 0 : 1 }' "$ROUTES_FILE"
+}
+
+render_config() {
+  ensure_state
+  {
+    cat <<EOF
+events {}
+
+http {
+  server {
+    listen ${LISTEN_HOST}:${LISTEN_PORT} default_server;
+    server_name _;
+    return 421;
+  }
+EOF
+
+    awk -F '\t' '
+      NF >= 2 && $1 !~ /^[[:space:]]*#/ && $1 != "" {
+        printf "\n  server {\n"
+        printf "    listen %s:%s;\n", ENVIRON["GATEWAY_RENDER_LISTEN_HOST"], ENVIRON["GATEWAY_RENDER_LISTEN_PORT"]
+        printf "    server_name %s.localhost;\n\n", $1
+        printf "    location / {\n"
+        printf "      add_header X-Agent-Gateway-Route %s always;\n", $1
+        printf "      proxy_http_version 1.1;\n"
+        printf "      proxy_set_header Host $host;\n"
+        printf "      proxy_set_header X-Forwarded-Host $host;\n"
+        printf "      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        printf "      proxy_set_header X-Forwarded-Proto $scheme;\n"
+        printf "      proxy_set_header Upgrade $http_upgrade;\n"
+        printf "      proxy_set_header Connection \"upgrade\";\n"
+        printf "      proxy_pass %s;\n", $2
+        printf "    }\n"
+        printf "  }\n"
+      }
+    ' "$ROUTES_FILE"
+
+    cat <<'EOF'
+}
+EOF
+  } > "$CONFIG_FILE.tmp"
+  if [ -e "$CONFIG_FILE" ]; then
+    cp "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    rm -f "$CONFIG_FILE.tmp"
+  else
+    mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+  fi
+}
+
+write_stack_override() {
+  local file="$1"
+  local ip="$2"
+  cat > "$file" <<EOF
+services:
+  postgres:
+    ports: !override
+      - "${ip}:5432:5432"
+  redis:
+    ports: !override
+      - "${ip}:6379:6379"
+  minio:
+    ports: !override
+      - "${ip}:9000:9000"
+      - "${ip}:9001:9001"
+  asn-lookup:
+    ports: !override
+      - "${ip}:8001:8000"
+  filter-service:
+    ports: !reset []
+  detection-feeders:
+    ports: !override
+      - "${ip}:4300:4300"
+  classifier-worker:
+    ports: !override
+      - "${ip}:5000:8080"
+  detection-ui-api:
+    ports: !override
+      - "${ip}:8000:8000"
+  detection-ui-frontend:
+    ports: !override
+      - "${ip}:3000:80"
+  prometheus:
+    ports: !override
+      - "${ip}:9090:9090"
+  grafana:
+    ports: !override
+      - "${ip}:3001:3000"
+  alertmanager:
+    ports: !override
+      - "${ip}:9093:9093"
+  loki:
+    ports: !override
+      - "${ip}:3100:3100"
+EOF
+}
+
+compose_cmd_array() {
+  local override="$1"
+  local extra_overrides="$2"
+  COMPOSE_CMD=(docker compose -f docker-compose.yml -f "$override")
+  if [ -n "$extra_overrides" ]; then
+    local extra
+    IFS=':' read -r -a EXTRA_FILES <<< "$extra_overrides"
+    for extra in "${EXTRA_FILES[@]}"; do
+      [ -n "$extra" ] || continue
+      COMPOSE_CMD+=(-f "$extra")
+    done
+  fi
+}
+
+cmd_start_locked() {
+  ensure_state
+  ensure_image
+  render_config
+  if container_running; then
+    info "$CONTAINER already running"
+    return 0
+  fi
+  if container_exists; then
+    docker rm "$CONTAINER" >/dev/null
+  fi
+  docker run -d \
+    --name "$CONTAINER" \
+    --network host \
+    -v "$CONFIG_FILE:/etc/nginx/nginx.conf:ro" \
+    "$IMAGE" nginx -c /etc/nginx/nginx.conf -g 'daemon off;' >/dev/null
+  info "started $CONTAINER on ${LISTEN_HOST}:${LISTEN_PORT}"
+}
+
+cmd_stop_locked() {
+  if container_exists; then
+    docker rm -f "$CONTAINER" >/dev/null
+    info "stopped $CONTAINER"
+  else
+    info "$CONTAINER is not present"
+  fi
+}
+
+cmd_reload_locked() {
+  ensure_state
+  render_config
+  if container_running; then
+    docker exec "$CONTAINER" nginx -s reload >/dev/null
+    info "reloaded $CONTAINER"
+  else
+    info "$CONTAINER is not running; start it with gatewayctl start"
+  fi
+}
+
+cmd_add_locked() {
+  [ "$#" -eq 2 ] || die "usage: gatewayctl add <name> <backend>"
+  local name="$1"
+  local backend
+  validate_name "$name"
+  backend="$(normalize_backend "$2")"
+  ensure_state
+  awk -F '\t' -v name="$name" '$1 != name' "$ROUTES_FILE" > "$ROUTES_FILE.tmp"
+  printf '%s\t%s\n' "$name" "$backend" >> "$ROUTES_FILE.tmp"
+  sort -u "$ROUTES_FILE.tmp" > "$ROUTES_FILE"
+  rm -f "$ROUTES_FILE.tmp"
+  cmd_reload_locked
+  info "route ${name}.localhost:${LISTEN_PORT} -> $backend"
+}
+
+cmd_remove_locked() {
+  [ "$#" -eq 1 ] || die "usage: gatewayctl remove <name>"
+  local name="$1"
+  validate_name "$name"
+  ensure_state
+  awk -F '\t' -v name="$name" '$1 != name' "$ROUTES_FILE" > "$ROUTES_FILE.tmp"
+  mv "$ROUTES_FILE.tmp" "$ROUTES_FILE"
+  cmd_reload_locked
+  info "removed route $name"
+}
+
+cmd_list() {
+  ensure_state
+  if [ ! -s "$ROUTES_FILE" ]; then
+    echo "No routes configured."
+    return 0
+  fi
+  awk -F '\t' -v port="$LISTEN_PORT" '
+    BEGIN { printf "%-32s %-28s %s\n", "HOST", "BACKEND", "URL" }
+    NF >= 2 { printf "%-32s %-28s http://%s.localhost:%s/\n", $1 ".localhost", $2, $1, port }
+  ' "$ROUTES_FILE"
+}
+
+cmd_url() {
+  [ "$#" -eq 1 ] || die "usage: gatewayctl url <name>"
+  validate_name "$1"
+  route_backend "$1" >/dev/null || die "route not found: $1"
+  printf 'http://%s.localhost:%s/\n' "$1" "$LISTEN_PORT"
+}
+
+cmd_status() {
+  ensure_state
+  echo "listen=${LISTEN_HOST}:${LISTEN_PORT}"
+  echo "state_dir=$STATE_DIR"
+  echo "container=$CONTAINER"
+  if container_running; then echo "running=true"; else echo "running=false"; fi
+  echo
+  cmd_list
+  echo
+  cmd_stack_list
+  echo
+  cmd_proxy_list
+}
+
+cmd_logs() {
+  if container_exists; then
+    docker logs "$CONTAINER" "$@"
+  else
+    die "$CONTAINER is not present"
+  fi
+}
+
+cmd_doctor() {
+  ensure_state
+  ensure_image
+  render_config
+  docker run --rm -v "$CONFIG_FILE:/etc/nginx/nginx.conf:ro" "$IMAGE" nginx -t -c /etc/nginx/nginx.conf >/dev/null
+  echo "OK: nginx config validates"
+  if ! container_running; then
+    echo "WARN: $CONTAINER is not running"
+    return 0
+  fi
+  local failed=0
+  while IFS=$'\t' read -r name backend; do
+    [ -n "${name:-}" ] || continue
+    local code
+    code="$(curl --noproxy '*' --resolve "${name}.localhost:${LISTEN_PORT}:${LISTEN_HOST}" \
+      -sS -o /dev/null -w '%{http_code}' \
+      "http://${name}.localhost:${LISTEN_PORT}/" || true)"
+    if [ "$code" = "000" ] || [ "$code" -ge 500 ]; then
+      echo "FAIL: ${name}.localhost:${LISTEN_PORT} -> $backend returned $code"
+      failed=1
+    else
+      echo "OK: ${name}.localhost:${LISTEN_PORT} -> $backend returned $code"
+    fi
+  done < "$ROUTES_FILE"
+  return "$failed"
+}
+
+cmd_stack_up_locked() {
+  [ "$#" -ge 3 ] || die "usage: gatewayctl stack up <name> <worktree> <ip> [options]"
+  local name="$1"
+  local worktree="$2"
+  local ip="$3"
+  shift 3
+  validate_name "$name"
+  validate_ip "$ip"
+  local compose_dir
+  compose_dir="$(compose_dir_for "$worktree")"
+  local project
+  project="$(default_project_for "$name")"
+  local tag=""
+  local services=()
+  local all_services=0
+  local no_build=0
+  local no_route=0
+  local extra_overrides=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --service) services+=("${2:?missing value for --service}"); shift 2 ;;
+      --all) all_services=1; shift ;;
+      --project) project="${2:?missing value for --project}"; shift 2 ;;
+      --tag) tag="${2:?missing value for --tag}"; shift 2 ;;
+      --no-build) no_build=1; shift ;;
+      --extra-override)
+        [ -f "${2:?missing value for --extra-override}" ] || die "override not found: $2"
+        if [ -n "$extra_overrides" ]; then
+          extra_overrides="$extra_overrides:$2"
+        else
+          extra_overrides="$2"
+        fi
+        shift 2
+        ;;
+      --no-route) no_route=1; shift ;;
+      *) die "unknown stack up option: $1" ;;
+    esac
+  done
+  if [ "$all_services" -eq 1 ] && [ "${#services[@]}" -gt 0 ]; then
+    die "--all cannot be combined with --service"
+  fi
+  if [ "$all_services" -eq 0 ] && [ "${#services[@]}" -eq 0 ]; then
+    services=(detection-ui-frontend)
+  fi
+  validate_project "$project"
+  tag="${tag:-$project}"
+  ensure_state
+  local override meta
+  override="$(instance_override "$name")"
+  meta="$(instance_meta "$name")"
+  write_stack_override "$override" "$ip"
+  {
+    printf 'NAME=%s\n' "$(shell_quote "$name")"
+    printf 'COMPOSE_DIR=%s\n' "$(shell_quote "$compose_dir")"
+    printf 'IP=%s\n' "$(shell_quote "$ip")"
+    printf 'PROJECT=%s\n' "$(shell_quote "$project")"
+    printf 'TAG_VALUE=%s\n' "$(shell_quote "$tag")"
+    if [ "$all_services" -eq 1 ]; then
+      printf 'SERVICES=%s\n' "$(shell_quote "all")"
+    elif [ "${#services[@]}" -gt 0 ]; then
+      printf 'SERVICES=%s\n' "$(shell_quote "${services[*]}")"
+    else
+      printf 'SERVICES=%s\n' "$(shell_quote "none")"
+    fi
+    printf 'NO_BUILD=%s\n' "$(shell_quote "$no_build")"
+    printf 'EXTRA_OVERRIDES=%s\n' "$(shell_quote "$extra_overrides")"
+  } > "$meta"
+  compose_cmd_array "$override" "$extra_overrides"
+  local up_args=(up -d)
+  [ "$no_build" -eq 1 ] && up_args+=(--no-build)
+  if [ "$all_services" -eq 0 ]; then
+    up_args+=("${services[@]}")
+  fi
+  (cd "$compose_dir" && COMPOSE_PROJECT_NAME="$project" TAG="$tag" "${COMPOSE_CMD[@]}" "${up_args[@]}")
+  if [ "$no_route" -eq 0 ]; then
+    cmd_start_locked
+    cmd_add_locked "$name" "$ip:3000"
+  fi
+  info "stack $name started project=$project ip=$ip"
+}
+
+cmd_stack_down_locked() {
+  [ "$#" -ge 1 ] || die "usage: gatewayctl stack down <name> [--keep-volumes]"
+  local name="$1"
+  shift
+  validate_name "$name"
+  local keep_volumes=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --keep-volumes) keep_volumes=1; shift ;;
+      *) die "unknown stack down option: $1" ;;
+    esac
+  done
+  local meta override
+  meta="$(instance_meta "$name")"
+  override="$(instance_override "$name")"
+  [ -f "$meta" ] || die "instance not found: $name"
+  # shellcheck disable=SC1090
+  source "$meta"
+  compose_cmd_array "$override" "${EXTRA_OVERRIDES:-}"
+  local pmeta
+  pmeta="$(proxy_meta "$name")"
+  if [ -f "$pmeta" ]; then
+    docker rm -f "$(proxy_container_name "$name")" >/dev/null 2>&1 || true
+    rm -f "$pmeta"
+  fi
+  local down_args=(down --remove-orphans)
+  [ "$keep_volumes" -eq 0 ] && down_args+=(-v)
+  (cd "$COMPOSE_DIR" && COMPOSE_PROJECT_NAME="$PROJECT" TAG="$TAG_VALUE" "${COMPOSE_CMD[@]}" "${down_args[@]}")
+  cmd_remove_locked "$name" || true
+  rm -f "$meta" "$override"
+  info "stack $name removed"
+}
+
+cmd_stack_list() {
+  ensure_state
+  if ! find "$INSTANCE_DIR" -maxdepth 1 -name '*.env' -type f | grep -q .; then
+    echo "No stack instances configured."
+    return 0
+  fi
+  printf "%-18s %-18s %-13s %-28s %s\n" "NAME" "PROJECT" "IP" "COMPOSE_DIR" "URL"
+  local meta
+  while IFS= read -r meta; do
+    # shellcheck disable=SC1090
+    source "$meta"
+    printf "%-18s %-18s %-13s %-28s http://%s.localhost:%s/\n" \
+      "$NAME" "$PROJECT" "$IP" "$COMPOSE_DIR" "$NAME" "$LISTEN_PORT"
+  done < <(find "$INSTANCE_DIR" -maxdepth 1 -name '*.env' -type f | sort)
+}
+
+cmd_stack() {
+  local sub="${1:-help}"
+  shift || true
+  case "$sub" in
+    up) with_lock cmd_stack_up_locked "$@" ;;
+    down|rm) with_lock cmd_stack_down_locked "$@" ;;
+    list|ls) cmd_stack_list "$@" ;;
+    *) usage >&2; die "unknown stack command: $sub" ;;
+  esac
+}
+
+cmd_proxy_up_locked() {
+  [ "$#" -ge 1 ] || die "usage: gatewayctl proxy up <name> [options]"
+  local name="$1"
+  shift
+  validate_name "$name"
+
+  local env_name="prod"
+  local dashboard_url=""
+  local port=""
+  local allow_mutate=0
+  local no_build=0
+  local prefixes=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --env) env_name="${2:?missing value for --env}"; shift 2 ;;
+      --dashboard-url) dashboard_url="${2:?missing value for --dashboard-url}"; shift 2 ;;
+      --local-api-prefix) prefixes+=("${2:?missing value for --local-api-prefix}"); shift 2 ;;
+      --port) port="${2:?missing value for --port}"; shift 2 ;;
+      --allow-mutate) allow_mutate=1; shift ;;
+      --no-build) no_build=1; shift ;;
+      *) die "unknown proxy up option: $1" ;;
+    esac
+  done
+
+  local meta
+  meta="$(instance_meta "$name")"
+  [ -f "$meta" ] || die "stack instance not found: $name"
+  # shellcheck disable=SC1090
+  source "$meta"
+
+  dashboard_url="${dashboard_url:-$(dashboard_url_for_env "$env_name")}"
+  port="${port:-$(proxy_port_for_ip "$IP")}"
+  validate_port "$port"
+
+  [ "$no_build" -eq 1 ] || ensure_prod_ui_proxy_image
+  ensure_cf_volume
+
+  local container
+  container="$(proxy_container_name "$name")"
+  if docker inspect "$container" >/dev/null 2>&1; then
+    docker rm -f "$container" >/dev/null
+  fi
+
+  local prefix_csv old_ifs allow_mutate_value
+  old_ifs="$IFS"
+  IFS=,
+  prefix_csv="${prefixes[*]}"
+  IFS="$old_ifs"
+  if [ "$allow_mutate" -eq 1 ]; then
+    allow_mutate_value="true"
+  else
+    allow_mutate_value="false"
+  fi
+
+  docker run -d \
+    --name "$container" \
+    --network host \
+    --user "${CLOUDFLARED_UID}:${CLOUDFLARED_GID}" \
+    -e HOME=/home/nonroot \
+    -e "PROXY_LISTEN_HOST=127.0.0.1" \
+    -e "PROXY_LISTEN_PORT=$port" \
+    -e "LOCAL_FRONTEND_URL=http://${IP}:3000" \
+    -e "LOCAL_API_URL=http://${IP}:8000" \
+    -e "PROD_DASHBOARD_URL=$dashboard_url" \
+    -e "ACCESS_TOKEN_URL=$dashboard_url" \
+    -e "ACCESS_LOGIN_COMMAND=/workspace/tools/access/accessctl login ${env_name} dashboard" \
+    -e "LOCAL_API_PREFIXES=$prefix_csv" \
+    -e "ALLOW_MUTATING_PROD=$allow_mutate_value" \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$PROD_UI_PROXY_IMAGE" >/dev/null
+
+  local healthy=0
+  for _ in $(seq 1 40); do
+    if curl --noproxy '*' -fsS "http://127.0.0.1:${port}/__gateway_proxy/health" >/dev/null 2>&1; then
+      healthy=1
+      break
+    fi
+    sleep 0.25
+  done
+  if [ "$healthy" -ne 1 ]; then
+    docker logs --tail 80 "$container" >&2 || true
+    die "proxy did not become healthy on 127.0.0.1:$port"
+  fi
+
+  local pmeta
+  pmeta="$(proxy_meta "$name")"
+  {
+    printf 'NAME=%s\n' "$(shell_quote "$name")"
+    printf 'CONTAINER=%s\n' "$(shell_quote "$container")"
+    printf 'PORT=%s\n' "$(shell_quote "$port")"
+    printf 'ENV_NAME=%s\n' "$(shell_quote "$env_name")"
+    printf 'DASHBOARD_URL=%s\n' "$(shell_quote "$dashboard_url")"
+    printf 'LOCAL_FRONTEND_URL=%s\n' "$(shell_quote "http://${IP}:3000")"
+    printf 'LOCAL_API_URL=%s\n' "$(shell_quote "http://${IP}:8000")"
+    printf 'LOCAL_API_PREFIXES=%s\n' "$(shell_quote "$prefix_csv")"
+    printf 'ALLOW_MUTATING_PROD=%s\n' "$(shell_quote "$allow_mutate_value")"
+  } > "$pmeta"
+
+  cmd_start_locked
+  cmd_add_locked "$name" "127.0.0.1:$port"
+  info "proxy $name routes local frontend/local prefixes via ${IP}, prod APIs via $dashboard_url"
+}
+
+cmd_proxy_down_locked() {
+  [ "$#" -eq 1 ] || die "usage: gatewayctl proxy down <name>"
+  local name="$1"
+  validate_name "$name"
+  local pmeta meta
+  pmeta="$(proxy_meta "$name")"
+  meta="$(instance_meta "$name")"
+  if [ -f "$pmeta" ]; then
+    # shellcheck disable=SC1090
+    source "$pmeta"
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    rm -f "$pmeta"
+  else
+    docker rm -f "$(proxy_container_name "$name")" >/dev/null 2>&1 || true
+  fi
+
+  if [ -f "$meta" ]; then
+    # shellcheck disable=SC1090
+    source "$meta"
+    cmd_add_locked "$name" "$IP:3000"
+    info "proxy $name stopped; restored local frontend route"
+  else
+    cmd_remove_locked "$name" || true
+    info "proxy $name stopped; no stack instance remains"
+  fi
+}
+
+cmd_proxy_list() {
+  ensure_state
+  if ! find "$INSTANCE_DIR" -maxdepth 1 -name '*.proxy' -type f | grep -q .; then
+    echo "No UI proxies configured."
+    return 0
+  fi
+  printf "%-18s %-8s %-8s %-42s %s\n" "NAME" "PORT" "MUTATE" "DASHBOARD_URL" "LOCAL_API_PREFIXES"
+  local pmeta running
+  while IFS= read -r pmeta; do
+    # shellcheck disable=SC1090
+    source "$pmeta"
+    if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || true)" = "true" ]; then
+      running="$PORT"
+    else
+      running="${PORT}!"
+    fi
+    printf "%-18s %-8s %-8s %-42s %s\n" \
+      "$NAME" "$running" "$ALLOW_MUTATING_PROD" "$DASHBOARD_URL" "$LOCAL_API_PREFIXES"
+  done < <(find "$INSTANCE_DIR" -maxdepth 1 -name '*.proxy' -type f | sort)
+}
+
+cmd_proxy() {
+  local sub="${1:-help}"
+  shift || true
+  case "$sub" in
+    up) with_lock cmd_proxy_up_locked "$@" ;;
+    down|rm) with_lock cmd_proxy_down_locked "$@" ;;
+    list|ls|status) cmd_proxy_list "$@" ;;
+    *) usage >&2; die "unknown proxy command: $sub" ;;
+  esac
+}
+
+with_lock() {
+  mkdir -p "$LOCK_DIR"
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK_DIR/gateway.lock"
+    flock 9
+  fi
+  "$@"
+}
+
+main() {
+  export GATEWAY_RENDER_LISTEN_HOST="$LISTEN_HOST"
+  export GATEWAY_RENDER_LISTEN_PORT="$LISTEN_PORT"
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    help|-h|--help) usage ;;
+    start) with_lock cmd_start_locked "$@" ;;
+    stop) with_lock cmd_stop_locked "$@" ;;
+    restart) with_lock cmd_stop_locked; with_lock cmd_start_locked ;;
+    reload) with_lock cmd_reload_locked "$@" ;;
+    status) cmd_status "$@" ;;
+    logs) cmd_logs "$@" ;;
+    list) cmd_list "$@" ;;
+    add) with_lock cmd_add_locked "$@" ;;
+    remove|rm) with_lock cmd_remove_locked "$@" ;;
+    url) cmd_url "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    stack) cmd_stack "$@" ;;
+    proxy|prod-proxy) cmd_proxy "$@" ;;
+    *) usage >&2; die "unknown command: $cmd" ;;
+  esac
+}
+
+main "$@"

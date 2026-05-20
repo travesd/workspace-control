@@ -1,0 +1,357 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+ENV_FILE="${DB_ENV_FILE:-$ROOT/db.env}"
+STATE_DIR="${DB_STATE_DIR:-$ROOT/.agent-db}"
+LOCK_DIR="${DB_LOCK_DIR:-$STATE_DIR}"
+CF_DIR="${CLOUDFLARED_DIR:-}"
+CF_VOLUME="${CLOUDFLARED_VOLUME:-detection-db-cloudflared}"
+NETWORK="${DB_DOCKER_NETWORK:-detection-db-access}"
+TUNNEL_NAME="${DB_TUNNEL_CONTAINER:-detection-db-tunnel}"
+CLOUDFLARED_IMAGE="${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}"
+PSQL_IMAGE="${PSQL_IMAGE:-postgres:16-alpine}"
+DB_PORT="${DB_TUNNEL_PORT:-25432}"
+DB_LISTEN="${DB_TUNNEL_LISTEN:-0.0.0.0:${DB_PORT}}"
+CLOUDFLARED_UID="${CLOUDFLARED_UID:-65532}"
+CLOUDFLARED_GID="${CLOUDFLARED_GID:-65532}"
+
+usage() {
+  cat <<'USAGE'
+Usage: /workspace/tools/db/dbctl <command> [args...]
+
+Container-only DB access through Cloudflare Access. No host psql/cloudflared
+install and no devcontainer dependency.
+
+Commands:
+  auth [prod|staging]       Run Cloudflare Access browser login into workspace state
+  start [prod|staging]      Start the cloudflared TCP tunnel container
+  stop                      Stop and remove the tunnel container
+  restart [prod|staging]    Restart the tunnel container
+  status                    Show tunnel/container/auth state
+  logs                      Tail cloudflared tunnel logs
+  psql [psql args...]       Run psql in a postgres client container
+  query <sql>               Run one SQL statement with psql -At
+  exec <cmd...>             Run a command in the postgres client container
+  doctor [prod|staging]     Check images, env, tunnel, and SELECT connectivity
+
+Defaults:
+  env: prod
+  DB env file: /workspace/db.env
+  Cloudflare token volume: detection-db-cloudflared
+  Docker network: detection-db-access
+
+Supported db.env keys:
+  psql_username, psql_password
+  optional: DB_NAME, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET
+USAGE
+}
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+info() {
+  echo "dbctl: $*" >&2
+}
+
+ensure_dir() {
+  if [ -n "$CF_DIR" ]; then
+    mkdir -p "$CF_DIR"
+    chmod 700 "$STATE_DIR" "$CF_DIR" 2>/dev/null || true
+  else
+    docker volume create "$CF_VOLUME" >/dev/null
+    repair_cf_volume
+  fi
+}
+
+ensure_image() {
+  local image="$1"
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    info "pulling missing image $image"
+    docker pull "$image" >/dev/null
+  fi
+}
+
+repair_cf_volume() {
+  ensure_image "$PSQL_IMAGE"
+  docker run --rm \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$PSQL_IMAGE" sh -lc \
+    "chown -R ${CLOUDFLARED_UID}:${CLOUDFLARED_GID} /home/nonroot/.cloudflared && chmod 700 /home/nonroot/.cloudflared && find /home/nonroot/.cloudflared -maxdepth 1 -type f -exec chmod 600 {} \\;" >/dev/null
+}
+
+ensure_network() {
+  if ! docker network inspect "$NETWORK" >/dev/null 2>&1; then
+    docker network create "$NETWORK" >/dev/null
+  fi
+}
+
+prepare_cf_mount() {
+  ensure_dir
+  CF_MOUNT_ARGS=()
+  if [ -n "$CF_DIR" ]; then
+    CF_MOUNT_ARGS=(-v "$CF_DIR:/home/nonroot/.cloudflared")
+  else
+    CF_MOUNT_ARGS=(-v "$CF_VOLUME:/home/nonroot/.cloudflared")
+  fi
+}
+
+clean_cf_locks() {
+  if [ -n "$CF_DIR" ]; then
+    find "$CF_DIR" -maxdepth 1 -type f -name '*.lock' -delete 2>/dev/null || true
+  elif docker volume inspect "$CF_VOLUME" >/dev/null 2>&1; then
+    ensure_image "$PSQL_IMAGE"
+    docker run --rm \
+      -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+      "$PSQL_IMAGE" sh -lc \
+      "rm -f /home/nonroot/.cloudflared/*.lock && chown -R ${CLOUDFLARED_UID}:${CLOUDFLARED_GID} /home/nonroot/.cloudflared && chmod 700 /home/nonroot/.cloudflared && find /home/nonroot/.cloudflared -maxdepth 1 -type f -exec chmod 600 {} \\;" >/dev/null
+  fi
+}
+
+env_value() {
+  local key="$1"
+  [ -f "$ENV_FILE" ] || return 0
+  awk -v wanted="$key" '
+    /^[[:space:]]*($|#)/ { next }
+    {
+      line=$0
+      sub(/\r$/, "", line)
+      split(line, parts, "=")
+      k=parts[1]
+      sub(/^[[:space:]]+/, "", k)
+      sub(/[[:space:]]+$/, "", k)
+      if (k == wanted) {
+        sub(/^[^=]*=/, "", line)
+        print line
+        exit
+      }
+    }
+  ' "$ENV_FILE"
+}
+
+strip_quotes() {
+  local value="$1"
+  case "$value" in
+    \"*\") value="${value#\"}"; value="${value%\"}" ;;
+    \'*\') value="${value#\'}"; value="${value%\'}" ;;
+  esac
+  printf '%s' "$value"
+}
+
+load_db_env() {
+  [ -f "$ENV_FILE" ] || die "$ENV_FILE not found"
+  DB_USER="${DB_USER:-${PGUSER:-$(strip_quotes "$(env_value psql_username)")}}"
+  DB_PASSWORD="${DB_PASSWORD:-${PGPASSWORD:-$(strip_quotes "$(env_value psql_password)")}}"
+  DB_NAME="${DB_NAME:-${PGDATABASE:-$(strip_quotes "$(env_value DB_NAME)")}}"
+  DB_NAME="${DB_NAME:-detection}"
+  [ -n "$DB_USER" ] || die "psql_username missing from $ENV_FILE"
+  [ -n "$DB_PASSWORD" ] || die "psql_password missing from $ENV_FILE"
+}
+
+load_cf_env() {
+  CF_ACCESS_CLIENT_ID="${CF_ACCESS_CLIENT_ID:-$(strip_quotes "$(env_value CF_ACCESS_CLIENT_ID)")}"
+  CF_ACCESS_CLIENT_SECRET="${CF_ACCESS_CLIENT_SECRET:-$(strip_quotes "$(env_value CF_ACCESS_CLIENT_SECRET)")}"
+}
+
+hostname_for() {
+  local env_name="${1:-prod}"
+  case "$env_name" in
+    prod|production) echo "${DB_HOSTNAME_PROD:-db-prod.phishsonar.com}" ;;
+    staging|stage) echo "${DB_HOSTNAME_STAGING:-db-staging.phishsonar.com}" ;;
+    db-*) echo "$env_name" ;;
+    *) die "unknown DB environment '$env_name' (use prod, staging, or db-*.phishsonar.com)" ;;
+  esac
+}
+
+docker_tty_args() {
+  if [ -t 0 ] && [ -t 1 ]; then
+    printf '%s\n' "-it"
+  fi
+}
+
+workspace_workdir() {
+  case "${PWD:-}" in
+    "$ROOT"/*|"$ROOT") printf '%s' "$PWD" ;;
+    *) printf '%s' "$ROOT" ;;
+  esac
+}
+
+tunnel_exists() {
+  docker inspect "$TUNNEL_NAME" >/dev/null 2>&1
+}
+
+tunnel_running() {
+  [ "$(docker inspect -f '{{.State.Running}}' "$TUNNEL_NAME" 2>/dev/null || true)" = "true" ]
+}
+
+cmd_auth() {
+  local host
+  host="$(hostname_for "${1:-prod}")"
+  prepare_cf_mount
+  ensure_image "$CLOUDFLARED_IMAGE"
+  local tty=()
+  while IFS= read -r arg; do tty+=("$arg"); done < <(docker_tty_args)
+  # Force IPv4 DNS — host's resolver returns AAAA-only for login.cloudflareaccess.org,
+  # but Docker bridge networks have no IPv6 routing, so token transfer fails.
+  docker run --rm "${tty[@]}" \
+    --dns "${CF_DNS:-1.1.1.1}" \
+    -e HOME=/home/nonroot \
+    "${CF_MOUNT_ARGS[@]}" \
+    "$CLOUDFLARED_IMAGE" access login "$host"
+}
+
+cmd_start() {
+  mkdir -p "$LOCK_DIR"
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK_DIR/tunnel.lock"
+    flock 9
+  fi
+  cmd_start_locked "$@"
+}
+
+cmd_start_locked() {
+  local host
+  host="$(hostname_for "${1:-prod}")"
+  prepare_cf_mount
+  ensure_image "$CLOUDFLARED_IMAGE"
+  ensure_network
+  load_cf_env
+
+  if tunnel_running; then
+    info "$TUNNEL_NAME already running"
+    return 0
+  fi
+  if tunnel_exists; then
+    docker rm "$TUNNEL_NAME" >/dev/null
+  fi
+
+  local access_args=(access tcp --hostname "$host" --url "$DB_LISTEN" --loglevel info)
+  if [ -n "${CF_ACCESS_CLIENT_ID:-}" ] || [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
+    [ -n "${CF_ACCESS_CLIENT_ID:-}" ] || die "CF_ACCESS_CLIENT_ID missing"
+    [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ] || die "CF_ACCESS_CLIENT_SECRET missing"
+    access_args+=(--id "$CF_ACCESS_CLIENT_ID" --secret "$CF_ACCESS_CLIENT_SECRET")
+  fi
+
+  docker run -d \
+    --name "$TUNNEL_NAME" \
+    --network "$NETWORK" \
+    --dns "${CF_DNS:-1.1.1.1}" \
+    -e HOME=/home/nonroot \
+    "${CF_MOUNT_ARGS[@]}" \
+    "$CLOUDFLARED_IMAGE" "${access_args[@]}" >/dev/null
+  info "started $TUNNEL_NAME for $host on $NETWORK:$DB_PORT"
+}
+
+cmd_stop() {
+  if tunnel_exists; then
+    docker rm -f "$TUNNEL_NAME" >/dev/null
+    clean_cf_locks
+    info "stopped $TUNNEL_NAME"
+  else
+    info "$TUNNEL_NAME is not present"
+  fi
+}
+
+cmd_status() {
+  echo "env_file=$ENV_FILE"
+  if [ -n "$CF_DIR" ]; then
+    echo "cloudflared_state=bind:$CF_DIR"
+  else
+    echo "cloudflared_state=volume:$CF_VOLUME"
+  fi
+  echo "network=$NETWORK"
+  echo "tunnel_container=$TUNNEL_NAME"
+  echo
+  stat -c 'db_env_mode=%a owner=%U:%G path=%n' "$ENV_FILE" 2>/dev/null || true
+  if [ -n "$CF_DIR" ]; then
+    echo "cloudflared_tokens=$(find "$CF_DIR" -maxdepth 1 -type f ! -name '*.lock' 2>/dev/null | wc -l | tr -d ' ')"
+  elif docker volume inspect "$CF_VOLUME" >/dev/null 2>&1 && docker image inspect "$PSQL_IMAGE" >/dev/null 2>&1; then
+    echo "cloudflared_tokens=$(docker run --rm -v "$CF_VOLUME:/home/nonroot/.cloudflared" "$PSQL_IMAGE" sh -lc "find /home/nonroot/.cloudflared -maxdepth 1 -type f ! -name '*.lock' 2>/dev/null | wc -l" | tr -d ' ')"
+  else
+    echo "cloudflared_tokens=unknown"
+  fi
+  echo
+  docker ps -a --filter "name=^/${TUNNEL_NAME}$" \
+    --format 'container={{.Names}} status={{.Status}} image={{.Image}}'
+}
+
+cmd_logs() {
+  docker logs --tail "${DB_LOG_LINES:-120}" "$TUNNEL_NAME"
+}
+
+client_container() {
+  load_db_env
+  ensure_image "$PSQL_IMAGE"
+  ensure_network
+  if ! tunnel_running; then
+    cmd_start "${DB_ENV:-prod}"
+    sleep 2
+  fi
+  local tty=()
+  while IFS= read -r arg; do tty+=("$arg"); done < <(docker_tty_args)
+  docker run --rm "${tty[@]}" \
+    --network "$NETWORK" \
+    -v "$ROOT:$ROOT" \
+    -w "$(workspace_workdir)" \
+    -e "PGPASSWORD=$DB_PASSWORD" \
+    -e "PGUSER=$DB_USER" \
+    -e "PGDATABASE=$DB_NAME" \
+    -e "PGHOST=$TUNNEL_NAME" \
+    -e "PGPORT=$DB_PORT" \
+    -e "PGCONNECT_TIMEOUT=${PGCONNECT_TIMEOUT:-10}" \
+    "$PSQL_IMAGE" "$@"
+}
+
+cmd_psql() {
+  load_db_env
+  client_container psql \
+    "sslmode=disable host=$TUNNEL_NAME port=$DB_PORT user=$DB_USER dbname=$DB_NAME" \
+    "$@"
+}
+
+cmd_query() {
+  [ "$#" -gt 0 ] || die "query requires SQL"
+  cmd_psql -v ON_ERROR_STOP=1 -At -c "$*"
+}
+
+cmd_exec() {
+  [ "$#" -gt 0 ] || die "exec requires a command"
+  client_container "$@"
+}
+
+cmd_doctor() {
+  local env_name="${1:-prod}"
+  ensure_image "$CLOUDFLARED_IMAGE"
+  ensure_image "$PSQL_IMAGE"
+  load_db_env
+  cmd_start "$env_name"
+  sleep 2
+  cmd_status
+  echo
+  cmd_query "select current_database(), current_user, version();"
+}
+
+main() {
+  local cmd="${1:-help}"
+  if [ "$#" -gt 0 ]; then
+    shift
+  fi
+  case "$cmd" in
+    auth) cmd_auth "$@" ;;
+    start) cmd_start "$@" ;;
+    stop) cmd_stop "$@" ;;
+    restart) cmd_stop; cmd_start "$@" ;;
+    status) cmd_status ;;
+    logs) cmd_logs ;;
+    psql) cmd_psql "$@" ;;
+    query) cmd_query "$@" ;;
+    exec) cmd_exec "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    help|-h|--help) usage ;;
+    *) usage >&2; die "unknown command '$cmd'" ;;
+  esac
+}
+
+main "$@"

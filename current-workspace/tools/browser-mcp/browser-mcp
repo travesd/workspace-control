@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: browser-mcp [detection-ui|general] [-- extra @playwright/mcp args...]
+
+Workspace wrapper for Playwright MCP. It pins the MCP package version, keeps
+browser profiles isolated, and avoids writing Playwright artifacts to the
+workspace root.
+
+Environment:
+  PLAYWRIGHT_MCP_VERSION        Package version to run (default: 0.0.73)
+  AGENT_BROWSER_RUNTIME         auto, docker, or host (default: auto)
+  PLAYWRIGHT_MCP_IMAGE          Docker image for runtime=docker
+                                (default: mcr.microsoft.com/playwright:v1.58.2-noble)
+  AGENT_BROWSER_OUTPUT_DIR      Optional artifact directory. When set, it must
+                                be under:
+                                  /workspace/detection-platform-metal-work/busy/*/screenshots
+                                  /workspace/detection-platform-metal-work/investigations/*/screenshots
+  AGENT_BROWSER_ALLOW_UNSAFE_OUTPUT=1
+                                Bypass output directory guardrail.
+  AGENT_BROWSER_VIEWPORT        Viewport size, e.g. 1440x1000.
+  AGENT_BROWSER_EXECUTABLE_PATH Optional browser executable path. If unset,
+                                the wrapper uses a Playwright-managed Chromium
+                                executable when one is available.
+  AGENT_BROWSER_ALLOWED_ORIGINS Semicolon-separated Playwright MCP allowlist.
+  AGENT_BROWSER_BLOCKED_ORIGINS Semicolon-separated Playwright MCP blocklist.
+
+When AGENT_BROWSER_OUTPUT_DIR is unset, the MCP server uses stdout output mode.
+Set AGENT_BROWSER_OUTPUT_DIR before agent startup when screenshots or saved
+browser artifacts are part of a task.
+USAGE
+}
+
+fatal() {
+  printf 'browser-mcp: %s\n' "$*" >&2
+  exit 2
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
+  usage
+  exit 0
+fi
+
+profile="${1:-detection-ui}"
+if [ "$#" -gt 0 ]; then
+  shift
+fi
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
+
+case "$profile" in
+  detection-ui|general)
+    ;;
+  *)
+    fatal "unknown profile '$profile' (expected detection-ui or general)"
+    ;;
+esac
+
+version="${PLAYWRIGHT_MCP_VERSION:-0.0.73}"
+viewport="${AGENT_BROWSER_VIEWPORT:-1440x1000}"
+package="@playwright/mcp@$version"
+runtime="${AGENT_BROWSER_RUNTIME:-auto}"
+image="${PLAYWRIGHT_MCP_IMAGE:-mcr.microsoft.com/playwright:v1.58.2-noble}"
+
+case "$runtime" in
+  auto)
+    if command -v docker >/dev/null 2>&1 && docker image inspect "$image" >/dev/null 2>&1; then
+      runtime="docker"
+    else
+      runtime="host"
+    fi
+    ;;
+  docker|host)
+    ;;
+  *)
+    fatal "AGENT_BROWSER_RUNTIME must be auto, docker, or host"
+    ;;
+esac
+
+if [ "$runtime" = "host" ]; then
+  command -v npx >/dev/null 2>&1 || fatal "npx is not available on PATH"
+else
+  command -v docker >/dev/null 2>&1 || fatal "docker is not available on PATH"
+fi
+
+args=(
+  -y
+  "$package"
+  --headless
+  --no-sandbox
+  --isolated
+  --viewport-size "$viewport"
+  --timeout-action "${AGENT_BROWSER_TIMEOUT_ACTION_MS:-7000}"
+  --timeout-navigation "${AGENT_BROWSER_TIMEOUT_NAVIGATION_MS:-60000}"
+)
+
+browser_executable="${AGENT_BROWSER_EXECUTABLE_PATH:-}"
+if [ -z "$browser_executable" ] && [ "$runtime" = "docker" ]; then
+  browser_executable="/ms-playwright/chromium-1208/chrome-linux64/chrome"
+fi
+if [ -z "$browser_executable" ] && [ "$runtime" = "host" ]; then
+  for candidate in \
+    "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux*/chrome \
+    "$HOME"/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell; do
+    if [ -x "$candidate" ]; then
+      browser_executable="$candidate"
+      break
+    fi
+  done
+fi
+if [ -n "$browser_executable" ]; then
+  if [ "$runtime" = "host" ]; then
+    [ -x "$browser_executable" ] || fatal "browser executable is not executable: $browser_executable"
+  fi
+  args+=(--executable-path "$browser_executable")
+fi
+
+if [ "$profile" = "detection-ui" ]; then
+  allowed="${AGENT_BROWSER_ALLOWED_ORIGINS:-http://*.localhost:*;http://localhost:*;http://127.0.0.1:*;http://127.0.0.2:*;http://127.0.0.3:*;http://127.0.0.4:*;http://127.0.0.5:*;http://127.0.0.6:*;http://127.0.0.7:*;http://127.0.0.8:*;http://127.0.0.9:*}"
+  blocked="${AGENT_BROWSER_BLOCKED_ORIGINS:-https://api-dev.detection.phishsonar.com;https://api.detection.phishsonar.com}"
+  args+=(--allowed-origins "$allowed" --blocked-origins "$blocked")
+elif [ -n "${AGENT_BROWSER_BLOCKED_ORIGINS:-}" ]; then
+  args+=(--blocked-origins "$AGENT_BROWSER_BLOCKED_ORIGINS")
+fi
+
+if [ -n "${AGENT_BROWSER_OUTPUT_DIR:-}" ]; then
+  case "$AGENT_BROWSER_OUTPUT_DIR" in
+    /*)
+      ;;
+    *)
+      fatal "AGENT_BROWSER_OUTPUT_DIR must be an absolute path"
+      ;;
+  esac
+
+  mkdir -p "$AGENT_BROWSER_OUTPUT_DIR"
+  output_dir="$(realpath -m "$AGENT_BROWSER_OUTPUT_DIR")"
+
+  if [ "${AGENT_BROWSER_ALLOW_UNSAFE_OUTPUT:-0}" != "1" ]; then
+    case "$output_dir" in
+      /workspace/detection-platform-metal-work/busy/*/screenshots|/workspace/detection-platform-metal-work/busy/*/screenshots/*|/workspace/detection-platform-metal-work/investigations/*/screenshots|/workspace/detection-platform-metal-work/investigations/*/screenshots/*)
+        ;;
+      *)
+        fatal "AGENT_BROWSER_OUTPUT_DIR must point to a task or investigation screenshots directory"
+        ;;
+    esac
+  fi
+
+  args+=(--output-mode file --output-dir "$output_dir" --image-responses omit)
+else
+  args+=(--output-mode stdout --image-responses allow)
+fi
+
+if [ "$runtime" = "docker" ]; then
+  exec docker run --rm -i \
+    --network host \
+    --ipc host \
+    --user "$(id -u):$(id -g)" \
+    -e HOME=/tmp/browser-mcp-home \
+    -v /workspace:/workspace \
+    "$image" \
+    npx "${args[@]}" "$@"
+fi
+
+exec npx "${args[@]}" "$@"

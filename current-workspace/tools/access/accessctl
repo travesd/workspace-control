@@ -1,0 +1,456 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+TOOL_DIR="${ACCESS_TOOL_DIR:-$ROOT/tools/access}"
+CLOUDFLARED_BASE_IMAGE="${CLOUDFLARED_BASE_IMAGE:-cloudflare/cloudflared:latest}"
+CLOUDFLARED_IMAGE="${CLOUDFLARED_IMAGE:-phishsonar-cloudflared-curl:local}"
+CURL_IMAGE="${ACCESS_CURL_IMAGE:-curlimages/curl:8.13.0}"
+TOKEN_FIX_IMAGE="${ACCESS_TOKEN_FIX_IMAGE:-alpine:3.20}"
+CF_VOLUME="${ACCESS_CLOUDFLARED_VOLUME:-${CLOUDFLARED_VOLUME:-detection-db-cloudflared}}"
+NETWORK="${ACCESS_DOCKER_NETWORK:-phishsonar-access}"
+LOCK_DIR="${ACCESS_LOCK_DIR:-$ROOT/.agent-access}"
+DEFAULT_ENV="${ACCESS_ENV:-prod}"
+CLOUDFLARED_UID="${CLOUDFLARED_UID:-65532}"
+CLOUDFLARED_GID="${CLOUDFLARED_GID:-65532}"
+
+usage() {
+  cat <<'USAGE'
+Usage: /workspace/tools/access/accessctl <command> [args...]
+
+Containerized Cloudflare Access helper for PhishSonar tunnel endpoints.
+Targets are derived from the metal Terraform convention:
+  <service>-prod.phishsonar.com and <service>-staging.phishsonar.com
+
+Commands:
+  targets
+      List supported env/service targets and expected tunnel origin services.
+
+  public-probe [prod|staging|all] [service|all]
+      Read-only unauthenticated HEAD probes. Confirms DNS/Cloudflare/Access
+      boundary, but not origin health behind Access.
+
+  login <prod|staging> <service>
+      Browser-authenticate cloudflared CLI access into the shared token volume.
+
+  curl <prod|staging> <service> [path-or-url] [curl args...]
+      Authenticated HTTP request through cloudflared access curl. On first
+      access, cloudflared prints a login URL; open it and leave the command
+      running so the token is downloaded into the Docker volume.
+
+  health [prod|staging|all] [service|all]
+      Authenticated read-only health/status checks for HTTP targets through
+      cloudflared access curl. May trigger first-use browser login.
+
+  tcp start <prod|staging> db [port]
+  tcp stop <prod|staging> db
+  tcp logs <prod|staging> db
+      Start/stop/log a cloudflared Access TCP tunnel container. The container
+      listens on its private Docker network only; no host port is published.
+
+State:
+  Cloudflare token volume: detection-db-cloudflared by default
+  Override with ACCESS_CLOUDFLARED_VOLUME or CLOUDFLARED_VOLUME.
+
+Examples:
+  /workspace/tools/access/accessctl targets
+  /workspace/tools/access/accessctl public-probe all all
+  /workspace/tools/access/accessctl curl prod prometheus /api/v1/status/config -sf
+  /workspace/tools/access/accessctl health staging loki
+  /workspace/tools/access/accessctl tcp start prod db 25432
+USAGE
+}
+
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+info() {
+  echo "accessctl: $*" >&2
+}
+
+ensure_image() {
+  local image="$1"
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    info "pulling missing image $image"
+    docker pull "$image" >/dev/null
+  fi
+}
+
+ensure_cloudflared_image() {
+  if docker image inspect "$CLOUDFLARED_IMAGE" >/dev/null 2>&1; then
+    local image_user
+    image_user="$(docker image inspect "$CLOUDFLARED_IMAGE" --format '{{.Config.User}}' 2>/dev/null || true)"
+    if [ "$image_user" = "${CLOUDFLARED_UID}:${CLOUDFLARED_GID}" ]; then
+      return 0
+    fi
+    if [ ! -f "$TOOL_DIR/Dockerfile" ]; then
+      return 0
+    fi
+  fi
+
+  if [ -f "$TOOL_DIR/Dockerfile" ]; then
+    info "building $CLOUDFLARED_IMAGE"
+    docker build \
+      --build-arg "CLOUDFLARED_BASE_IMAGE=$CLOUDFLARED_BASE_IMAGE" \
+      -t "$CLOUDFLARED_IMAGE" "$TOOL_DIR" >/dev/null
+    return 0
+  fi
+
+  ensure_image "$CLOUDFLARED_IMAGE"
+}
+
+ensure_volume() {
+  docker volume create "$CF_VOLUME" >/dev/null
+  repair_cf_volume
+}
+
+repair_cf_volume() {
+  ensure_image "$TOKEN_FIX_IMAGE"
+  docker run --rm \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$TOKEN_FIX_IMAGE" sh -lc \
+    "chown -R ${CLOUDFLARED_UID}:${CLOUDFLARED_GID} /home/nonroot/.cloudflared && chmod 700 /home/nonroot/.cloudflared && find /home/nonroot/.cloudflared -maxdepth 1 -type f -exec chmod 600 {} \\;" >/dev/null
+}
+
+ensure_network() {
+  if ! docker network inspect "$NETWORK" >/dev/null 2>&1; then
+    docker network create "$NETWORK" >/dev/null
+  fi
+}
+
+docker_tty_args() {
+  if [ -t 0 ] && [ -t 1 ]; then
+    printf '%s\n' "-it"
+  fi
+}
+
+suffix_for_env() {
+  case "${1:-$DEFAULT_ENV}" in
+    prod|production) printf '%s' "-prod" ;;
+    staging|stage) printf '%s' "-staging" ;;
+    *) die "unknown environment '$1' (use prod, staging, or all)" ;;
+  esac
+}
+
+normalize_env() {
+  case "${1:-$DEFAULT_ENV}" in
+    prod|production) printf '%s' "prod" ;;
+    staging|stage) printf '%s' "staging" ;;
+    all) printf '%s' "all" ;;
+    *) die "unknown environment '$1' (use prod, staging, or all)" ;;
+  esac
+}
+
+service_kind() {
+  case "$1" in
+    grafana|dashboard|api|prometheus|loki) printf '%s' "http" ;;
+    db) printf '%s' "tcp" ;;
+    *) die "unknown service '$1'" ;;
+  esac
+}
+
+origin_for() {
+  case "$1" in
+    grafana) printf '%s' "http://grafana:3000" ;;
+    dashboard) printf '%s' "http://detection-ui-frontend:80" ;;
+    api) printf '%s' "http://detection-core:4200" ;;
+    prometheus) printf '%s' "http://prometheus:9090" ;;
+    loki) printf '%s' "http://loki:3100" ;;
+    db) printf '%s' "tcp://postgres:5432" ;;
+    *) die "unknown service '$1'" ;;
+  esac
+}
+
+health_path_for() {
+  case "$1" in
+    grafana) printf '%s' "/api/health" ;;
+    dashboard) printf '%s' "/" ;;
+    api) printf '%s' "/api/v1/healthcheck" ;;
+    prometheus) printf '%s' "/-/healthy" ;;
+    loki) printf '%s' "/ready" ;;
+    db) printf '%s' "/" ;;
+    *) die "unknown service '$1'" ;;
+  esac
+}
+
+hostname_for() {
+  local env_name="$1"
+  local service="$2"
+  printf '%s%s.phishsonar.com' "$service" "$(suffix_for_env "$env_name")"
+}
+
+target_services() {
+  printf '%s\n' grafana dashboard api db prometheus loki
+}
+
+access_policy_for() {
+  case "$1" in
+    grafana) printf '%s' "email-domain" ;;
+    dashboard) printf '%s' "email-domain" ;;
+    api) printf '%s' "no-access-app-in-terraform" ;;
+    db|prometheus|loki) printf '%s' "email-allowlist-if-configured" ;;
+    *) die "unknown service '$1'" ;;
+  esac
+}
+
+target_envs() {
+  printf '%s\n' prod staging
+}
+
+selected_envs() {
+  local env_name
+  env_name="$(normalize_env "${1:-$DEFAULT_ENV}")"
+  if [ "$env_name" = "all" ]; then
+    target_envs
+  else
+    printf '%s\n' "$env_name"
+  fi
+}
+
+selected_services() {
+  local service="${1:-all}"
+  if [ "$service" = "all" ]; then
+    target_services
+  else
+    service_kind "$service" >/dev/null
+    printf '%s\n' "$service"
+  fi
+}
+
+cmd_targets() {
+  printf '%-8s %-11s %-42s %-6s %-31s %s\n' "env" "service" "hostname" "kind" "browser-login" "origin"
+  local env_name service
+  for env_name in $(target_envs); do
+    for service in $(target_services); do
+      printf '%-8s %-11s %-42s %-6s %-31s %s\n' \
+        "$env_name" "$service" "$(hostname_for "$env_name" "$service")" \
+        "$(service_kind "$service")" "$(access_policy_for "$service")" "$(origin_for "$service")"
+    done
+  done
+}
+
+curl_container() {
+  ensure_image "$CURL_IMAGE"
+  docker run --rm -i "$CURL_IMAGE" "$@"
+}
+
+cmd_public_probe() {
+  local env_filter="${1:-all}"
+  local service_filter="${2:-all}"
+  local env_name service host path code
+  printf '%-8s %-11s %-42s %-6s %-10s\n' "env" "service" "hostname" "kind" "http"
+  for env_name in $(selected_envs "$env_filter"); do
+    for service in $(selected_services "$service_filter"); do
+      host="$(hostname_for "$env_name" "$service")"
+      path="$(health_path_for "$service")"
+      if [ "$(service_kind "$service")" = "tcp" ]; then
+        path="/"
+      fi
+      code="$(curl_container -k -sS -I --max-time "${ACCESS_PROBE_TIMEOUT:-12}" \
+        -o /dev/null -w '%{http_code}' "https://$host$path" 2>/dev/null || true)"
+      printf '%-8s %-11s %-42s %-6s %-10s\n' \
+        "$env_name" "$service" "$host" "$(service_kind "$service")" "${code:-000}"
+    done
+  done
+}
+
+make_url() {
+  local env_name="$1"
+  local service="$2"
+  local path="${3:-}"
+  case "$path" in
+    http://*|https://*) printf '%s' "$path" ;;
+    "")
+      printf 'https://%s%s' "$(hostname_for "$env_name" "$service")" "$(health_path_for "$service")"
+      ;;
+    /*)
+      printf 'https://%s%s' "$(hostname_for "$env_name" "$service")" "$path"
+      ;;
+    *)
+      printf 'https://%s/%s' "$(hostname_for "$env_name" "$service")" "$path"
+      ;;
+  esac
+}
+
+cmd_login() {
+  local env_name="${1:-}"
+  local service="${2:-}"
+  [ -n "$env_name" ] || die "login requires env"
+  [ -n "$service" ] || die "login requires service"
+  env_name="$(normalize_env "$env_name")"
+  [ "$env_name" != "all" ] || die "login requires one env"
+  service_kind "$service" >/dev/null
+  ensure_volume
+  ensure_cloudflared_image
+  local tty=()
+  while IFS= read -r arg; do tty+=("$arg"); done < <(docker_tty_args)
+  docker run --rm "${tty[@]}" \
+    --user "${CLOUDFLARED_UID}:${CLOUDFLARED_GID}" \
+    -e HOME=/home/nonroot \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$CLOUDFLARED_IMAGE" access login "https://$(hostname_for "$env_name" "$service")"
+}
+
+cloudflared_access() {
+  ensure_volume
+  ensure_cloudflared_image
+  local tty=()
+  while IFS= read -r arg; do tty+=("$arg"); done < <(docker_tty_args)
+  docker run --rm "${tty[@]}" \
+    --user "${CLOUDFLARED_UID}:${CLOUDFLARED_GID}" \
+    -e HOME=/home/nonroot \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$CLOUDFLARED_IMAGE" access "$@"
+}
+
+cmd_curl() {
+  local env_name="${1:-}"
+  local service="${2:-}"
+  [ -n "$env_name" ] || die "curl requires env"
+  [ -n "$service" ] || die "curl requires service"
+  shift 2
+  env_name="$(normalize_env "$env_name")"
+  [ "$env_name" != "all" ] || die "curl requires one env"
+  [ "$(service_kind "$service")" = "http" ] || die "curl supports HTTP services only"
+
+  local path=""
+  if [ "$#" -gt 0 ]; then
+    case "$1" in
+      -*) path="" ;;
+      *) path="$1"; shift ;;
+    esac
+  fi
+
+  local url
+  url="$(make_url "$env_name" "$service" "$path")"
+  cloudflared_access curl "$url" "$@"
+}
+
+cmd_health() {
+  local env_filter="${1:-all}"
+  local service_filter="${2:-all}"
+  local env_name service
+  printf '%-8s %-11s %-42s %-10s\n' "env" "service" "hostname" "http"
+  for env_name in $(selected_envs "$env_filter"); do
+    for service in $(selected_services "$service_filter"); do
+      if [ "$(service_kind "$service")" != "http" ]; then
+        continue
+      fi
+      printf '%-8s %-11s %-42s ' \
+        "$env_name" "$service" "$(hostname_for "$env_name" "$service")"
+      cmd_curl "$env_name" "$service" "$(health_path_for "$service")" \
+        -sS -o /dev/null -w '%{http_code}\n' || true
+    done
+  done
+}
+
+tcp_container_name() {
+  local env_name="$1"
+  local service="$2"
+  printf 'access-%s-%s-tunnel' "$env_name" "$service"
+}
+
+cmd_tcp_start() {
+  local env_name="${1:-}"
+  local service="${2:-}"
+  local port="${3:-25432}"
+  [ -n "$env_name" ] || die "tcp start requires env"
+  [ -n "$service" ] || die "tcp start requires service"
+  env_name="$(normalize_env "$env_name")"
+  [ "$env_name" != "all" ] || die "tcp start requires one env"
+  [ "$(service_kind "$service")" = "tcp" ] || die "service '$service' is not tcp"
+  [[ "$port" =~ ^[0-9]+$ ]] || die "port must be numeric"
+
+  mkdir -p "$LOCK_DIR"
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK_DIR/${env_name}-${service}.lock"
+    flock 9
+  fi
+
+  ensure_volume
+  ensure_network
+  ensure_cloudflared_image
+
+  local container host
+  container="$(tcp_container_name "$env_name" "$service")"
+  host="$(hostname_for "$env_name" "$service")"
+  if docker inspect "$container" >/dev/null 2>&1; then
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" = "true" ]; then
+      info "$container already running"
+      return 0
+    fi
+    docker rm "$container" >/dev/null
+  fi
+
+  local access_args=(access tcp --hostname "$host" --url "0.0.0.0:$port" --loglevel info)
+  docker run -d \
+    --name "$container" \
+    --network "$NETWORK" \
+    --user "${CLOUDFLARED_UID}:${CLOUDFLARED_GID}" \
+    -e HOME=/home/nonroot \
+    -v "$CF_VOLUME:/home/nonroot/.cloudflared" \
+    "$CLOUDFLARED_IMAGE" "${access_args[@]}" >/dev/null
+  info "started $container for $host on $NETWORK:$port"
+}
+
+cmd_tcp_stop() {
+  local env_name="${1:-}"
+  local service="${2:-}"
+  [ -n "$env_name" ] || die "tcp stop requires env"
+  [ -n "$service" ] || die "tcp stop requires service"
+  env_name="$(normalize_env "$env_name")"
+  [ "$env_name" != "all" ] || die "tcp stop requires one env"
+  [ "$(service_kind "$service")" = "tcp" ] || die "service '$service' is not tcp"
+  local container
+  container="$(tcp_container_name "$env_name" "$service")"
+  if docker inspect "$container" >/dev/null 2>&1; then
+    docker rm -f "$container" >/dev/null
+    info "stopped $container"
+  else
+    info "$container is not present"
+  fi
+}
+
+cmd_tcp_logs() {
+  local env_name="${1:-}"
+  local service="${2:-}"
+  [ -n "$env_name" ] || die "tcp logs requires env"
+  [ -n "$service" ] || die "tcp logs requires service"
+  env_name="$(normalize_env "$env_name")"
+  [ "$env_name" != "all" ] || die "tcp logs requires one env"
+  [ "$(service_kind "$service")" = "tcp" ] || die "service '$service' is not tcp"
+  docker logs --tail "${ACCESS_LOG_LINES:-120}" "$(tcp_container_name "$env_name" "$service")"
+}
+
+cmd_tcp() {
+  local sub="${1:-}"
+  [ -n "$sub" ] || die "tcp requires subcommand: start|stop|logs"
+  shift
+  case "$sub" in
+    start) cmd_tcp_start "$@" ;;
+    stop) cmd_tcp_stop "$@" ;;
+    logs) cmd_tcp_logs "$@" ;;
+    *) die "unknown tcp subcommand '$sub'" ;;
+  esac
+}
+
+main() {
+  local cmd="${1:-help}"
+  if [ "$#" -gt 0 ]; then
+    shift
+  fi
+  case "$cmd" in
+    targets) cmd_targets "$@" ;;
+    public-probe) cmd_public_probe "$@" ;;
+    login) cmd_login "$@" ;;
+    curl) cmd_curl "$@" ;;
+    health) cmd_health "$@" ;;
+    tcp) cmd_tcp "$@" ;;
+    help|-h|--help) usage ;;
+    *) usage >&2; die "unknown command '$cmd'" ;;
+  esac
+}
+
+main "$@"

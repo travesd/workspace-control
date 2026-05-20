@@ -1,0 +1,19 @@
+ARG CLOUDFLARED_BASE_IMAGE=cloudflare/cloudflared:latest
+FROM ${CLOUDFLARED_BASE_IMAGE} AS cloudflared
+
+FROM python:3.12-alpine
+
+RUN apk add --no-cache ca-certificates \
+  && addgroup -g 65532 nonroot \
+  && adduser -D -H -u 65532 -G nonroot nonroot \
+  && mkdir -p /home/nonroot/.cloudflared \
+  && chown -R 65532:65532 /home/nonroot
+
+COPY --from=cloudflared /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+COPY prod_ui_proxy.py /usr/local/bin/prod_ui_proxy.py
+
+USER 65532:65532
+ENV HOME=/home/nonroot
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["python", "/usr/local/bin/prod_ui_proxy.py"]
