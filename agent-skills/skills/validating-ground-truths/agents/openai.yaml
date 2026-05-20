@@ -1,0 +1,6 @@
+interface:
+  display_name: "Validating Ground Truths"
+  short_description: "Audit classifier expected outputs"
+  default_prompt: "Use $validating-ground-truths to review detection classifier expected outputs."
+policy:
+  allow_implicit_invocation: true

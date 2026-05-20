@@ -1,0 +1,6 @@
+interface:
+  display_name: "Detection Dataset Export"
+  short_description: "Managed reusable incident exports"
+  default_prompt: "Use $detection-dataset-export to create a reusable incident export with exact query membership."
+policy:
+  allow_implicit_invocation: true

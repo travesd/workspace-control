@@ -1,0 +1,65 @@
+# Secrets and local environment
+.env
+.env.*
+*.env
+db.env
+pivoter.env
+docker-swarm.env
+classifiers*.env
+detection-core.env
+submit-tr.env
+*credential*
+*credentials*
+*secret*
+*token*
+*.pem
+*.key
+
+# Provider-local state and transcripts
+.claude/
+.codex/
+*.jsonl
+*.sqlite
+*.sqlite-*
+logs/
+sessions/
+telemetry/
+usage-data/
+
+# Large workspace data products
+datasets/
+backups/
+archive/
+data/
+testing-data/
+*.parquet
+*.duckdb
+*.csv
+*.tsv
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# Product repos and worktrees should not be vendored here
+detection-platform-metal/
+detection-platform-metal.worktrees/
+detection-platform-metal-work/busy/
+detection-platform-metal-work/done/
+detection-platform-metal-work/archived/
+detection-platform-metal-work/later/
+
+# Pi runtime artifacts
+.pi/harness/runs/
+.pi/harness/active-run.json
+.pi/sessions/
+.pi/logs/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.tmp

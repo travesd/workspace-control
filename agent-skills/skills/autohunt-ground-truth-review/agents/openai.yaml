@@ -1,0 +1,6 @@
+interface:
+  display_name: "Autohunt Ground Truth Review"
+  short_description: "Review autohunt evaluator batches"
+  default_prompt: "Use $autohunt-ground-truth-review to validate an autohunt evaluator CSV batch."
+policy:
+  allow_implicit_invocation: true

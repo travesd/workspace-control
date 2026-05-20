@@ -1,0 +1,41 @@
+{
+  "label": "workspace cross-review",
+  "flow": {
+    "kind": "sequence",
+    "steps": [
+      {
+        "kind": "fork",
+        "id": "parallel-review",
+        "branches": {
+          "scout": {
+            "kind": "spawn",
+            "agent": "workspace-scout",
+            "task": "Inspect current workspace-control and live workspace state relevant to the requested review. Return concise evidence with paths.",
+            "output": "text"
+          },
+          "review": {
+            "kind": "spawn",
+            "agent": "workspace-reviewer",
+            "task": "Review the requested workspace process change for risks, drift, and missing guardrails. Return findings with paths.",
+            "output": "text"
+          }
+        }
+      },
+      {
+        "kind": "join",
+        "id": "join-review",
+        "from": "parallel-review"
+      },
+      {
+        "kind": "spawn",
+        "agent": "workspace-synthesizer",
+        "task": "Synthesize the parallel review results into a final recommendation and first implementation slice.",
+        "output": "text"
+      }
+    ]
+  },
+  "budgets": {
+    "maxParallelism": 2,
+    "maxDepth": 3
+  }
+}

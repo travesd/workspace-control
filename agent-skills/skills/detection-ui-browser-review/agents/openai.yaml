@@ -1,0 +1,6 @@
+interface:
+  display_name: "Detection UI Browser Review"
+  short_description: "Review detection-ui with the shared browser MCP wrapper"
+  default_prompt: "Use $detection-ui-browser-review to inspect detection-ui through the local gateway with browser MCP."
+policy:
+  allow_implicit_invocation: true

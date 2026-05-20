@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cloudflare Access Observability"
+  short_description: "Read-only PhishSonar tunnel checks"
+  default_prompt: "Use $cloudflare-access-observability to inspect Cloudflare Access protected PhishSonar observability endpoints safely."
+policy:
+  allow_implicit_invocation: true
