@@ -13,11 +13,12 @@ Use this skill when a task is done, a PR merged, a review concluded, or the user
 2. Verify PR/branch/worktree state before moving anything.
 3. Check task directory size and data-shaped outputs.
 4. Write or update `SUMMARY.md`.
-5. Move reusable data products to `/workspace/datasets/` and leave pointers in task notes.
-6. Move the task to the correct `done/`, `later/`, or `archived/` destination.
-7. Update `DAY.md`, `done/INDEX.md`, and any dataset/backup index affected.
-8. Regenerate session index with `/workspace/tools/agents/sessionctl index`.
-9. Remove worktrees only when status is clean and the task rules allow it.
+5. Run durable-learning capture: record candidate reusable learnings or write "none" in `SUMMARY.md`.
+6. Move reusable data products to `/workspace/datasets/` and leave pointers in task notes.
+7. Move the task to the correct `done/`, `later/`, or `archived/` destination.
+8. Update `DAY.md`, `done/INDEX.md`, and any dataset/backup index affected.
+9. Regenerate session index with `/workspace/tools/agents/sessionctl index`.
+10. Remove worktrees only when status is clean and the task rules allow it.
 
 ## Gates
 

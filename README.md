@@ -18,6 +18,7 @@ This repo is not activated into the live workspace automatically. See `ACTIVATIO
 - Durable knowledge notes with provenance and re-verification rules.
 - Workspace-control helper scripts in `tools/`.
 - Process decisions and ADRs.
+- Implementation plans for staged workspace-control changes.
 - Templates for task setup, session hygiene, close-off, and cross-agent review.
 - Pi pilot agents, workflow drafts, and translation notes.
 
@@ -44,4 +45,9 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 
 - `tools/workspace-status` - short live orientation report for agents.
 - `tools/workspace-artifact-inventory` - audit-grade inventory for cleanup/review work.
+- `tools/knowledgectl` - lint, index, search, and stale-check provider-neutral knowledge notes.
 - `tools/check-sensitive-content` - large-file and redacted secret-pattern check before commits or remotes.
+
+## Current Plans
+
+- `docs/plans/2026-05-20-core-recommendations-implementation.md` - staged implementation plan for knowledge lookup, shared workflow skills, incident cache semantics, and Pi workflow translation.

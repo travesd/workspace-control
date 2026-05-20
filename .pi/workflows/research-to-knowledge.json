@@ -1,5 +1,5 @@
 {
-  "label": "durable learning capture",
+  "label": "research to knowledge",
   "flow": {
     "kind": "sequence",
     "steps": [
@@ -7,21 +7,21 @@
         "kind": "spawn",
         "id": "curate",
         "agent": "knowledge-curator",
-        "task": "Classify the supplied learning, verify its source, and draft the provider-neutral knowledge note or promotion plan. Treat weak memory-migration provenance as lookup-only until re-verified.",
+        "task": "Review the supplied external source or public example, extract only workspace-relevant patterns, and propose the durable destination.",
         "output": "json"
       },
       {
         "kind": "spawn",
         "id": "review",
         "agent": "workspace-reviewer",
-        "task": "Review the proposed durable-learning change for scope, provenance, stale-claim risk, and no-secret compliance.",
+        "task": "Review the research-to-knowledge proposal for source quality, workspace applicability, copyright/scope risk, and no-secret compliance.",
         "output": "json"
       },
       {
         "kind": "spawn",
         "id": "synthesize",
         "agent": "workspace-synthesizer",
-        "task": "Produce the final patch plan and implementation order from the curator and reviewer outputs.",
+        "task": "Produce the final workspace-specific learning, proposed patch plan, or explicit no-action decision.",
         "output": "text"
       }
     ]

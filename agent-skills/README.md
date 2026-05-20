@@ -12,6 +12,7 @@ These skills are intended to be portable between Claude and Codex. Pi can also c
 - `workspace-status`
 - `workspace-artifact-inventory`
 - `agents-md-review`
+- `research-to-knowledge`
 
 Before changing skills:
 

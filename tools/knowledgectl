@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if ROOT="$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null)"; then
+  :
+else
+  ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+KNOWLEDGE_DIR="$ROOT/knowledge"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  tools/knowledgectl lint
+  tools/knowledgectl index [--check]
+  tools/knowledgectl search <query>
+  tools/knowledgectl stale
+USAGE
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  lint)
+    KNOWLEDGE_DIR="$KNOWLEDGE_DIR" perl -Mstrict -Mwarnings -e '
+      my $dir = $ENV{KNOWLEDGE_DIR};
+      my @files = grep { !m{/(INDEX|README|TEMPLATE)\.md$} } sort glob("$dir/*.md");
+      my %type_ok = map { $_ => 1 } qw(feedback project-fact workflow gotcha decision-pointer);
+      my %status_ok = map { $_ => 1 } qw(active under-review deprecated superseded);
+      my %scope_ok = map { $_ => 1 } qw(workspace repo service dataset task);
+      my @required = qw(title tags status verified source re_verify_when);
+      my ($errors, $warnings) = (0, 0);
+
+      sub trim {
+        my ($s) = @_;
+        $s = "" unless defined $s;
+        $s =~ s/^\s+|\s+$//g;
+        $s =~ s/^"(.*)"$/$1/;
+        $s =~ s/^'\''(.*)'\''$/$1/;
+        return $s;
+      }
+
+      sub meta_for {
+        my ($path) = @_;
+        open my $fh, "<", $path or die "open $path: $!";
+        my $first = <$fh>;
+        return ({}, "missing frontmatter") unless defined $first && $first =~ /^---\s*$/;
+        my %m;
+        while (my $line = <$fh>) {
+          last if $line =~ /^---\s*$/;
+          next if $line =~ /^\s*$/;
+          if ($line =~ /^([A-Za-z0-9_-]+):\s*(.*)$/) {
+            $m{$1} = trim($2);
+          }
+        }
+        close $fh;
+        return (\%m, undef);
+      }
+
+      for my $path (@files) {
+        my $name = $path; $name =~ s{^\Q$dir\E/}{};
+        my ($m, $frontmatter_error) = meta_for($path);
+        if ($frontmatter_error) {
+          print "ERROR $name: $frontmatter_error\n";
+          ++$errors;
+          next;
+        }
+        for my $key (@required) {
+          next if exists $m->{$key} && length $m->{$key};
+          print "ERROR $name: missing required frontmatter field `$key`\n";
+          ++$errors;
+        }
+        if (!exists $m->{type} || !length $m->{type}) {
+          print "WARN  $name: legacy seed note missing `type`\n";
+          ++$warnings;
+        } elsif (!$type_ok{$m->{type}}) {
+          print "ERROR $name: invalid type `$m->{type}`\n";
+          ++$errors;
+        }
+        if (!exists $m->{scope} || !length $m->{scope}) {
+          print "WARN  $name: legacy seed note missing `scope`\n";
+          ++$warnings;
+        } elsif (!$scope_ok{$m->{scope}}) {
+          print "ERROR $name: invalid scope `$m->{scope}`\n";
+          ++$errors;
+        }
+        if (exists $m->{status} && length $m->{status} && !$status_ok{$m->{status}}) {
+          print "ERROR $name: invalid status `$m->{status}`\n";
+          ++$errors;
+        }
+        if (exists $m->{source} && $m->{source} =~ m{(\.claude|\.codex|provider transcript|raw transcript|db\.env|\.env\b|credential|secret|token)}i) {
+          print "ERROR $name: source points at a prohibited or sensitive-looking location\n";
+          ++$errors;
+        }
+        if (exists $m->{source} && $m->{source} =~ /sanitized workspace memory migration/i) {
+          print "WARN  $name: weak migration provenance; re-verify before promotion\n";
+          ++$warnings;
+        }
+      }
+      print "knowledge_lint: files=" . scalar(@files) . " warnings=$warnings errors=$errors\n";
+      exit($errors ? 1 : 0);
+    '
+    ;;
+  index)
+    check=0
+    if [ "${2:-}" = "--check" ]; then
+      check=1
+    elif [ -n "${2:-}" ]; then
+      usage >&2
+      exit 2
+    fi
+    KNOWLEDGE_DIR="$KNOWLEDGE_DIR" CHECK="$check" perl -Mstrict -Mwarnings -MJSON::PP -MFile::Temp=tempfile -e '
+      my $dir = $ENV{KNOWLEDGE_DIR};
+      my $check = $ENV{CHECK} || 0;
+      my @files = grep { !m{/(INDEX|README|TEMPLATE)\.md$} } sort glob("$dir/*.md");
+
+      sub trim {
+        my ($s) = @_;
+        $s = "" unless defined $s;
+        $s =~ s/^\s+|\s+$//g;
+        $s =~ s/^"(.*)"$/$1/;
+        $s =~ s/^'\''(.*)'\''$/$1/;
+        return $s;
+      }
+
+      sub parse_tags {
+        my ($s) = @_;
+        $s = trim($s);
+        $s =~ s/^\[//;
+        $s =~ s/\]$//;
+        return [grep { length $_ } map { trim($_) } split /\s*,\s*/, $s];
+      }
+
+      sub meta_for {
+        my ($path) = @_;
+        open my $fh, "<", $path or die "open $path: $!";
+        my $first = <$fh>;
+        my %m;
+        if (defined $first && $first =~ /^---\s*$/) {
+          while (my $line = <$fh>) {
+            last if $line =~ /^---\s*$/;
+            next if $line =~ /^\s*$/;
+            if ($line =~ /^([A-Za-z0-9_-]+):\s*(.*)$/) {
+              $m{$1} = trim($2);
+            }
+          }
+        }
+        close $fh;
+        return \%m;
+      }
+
+      sub inferred_type {
+        my ($m, $file) = @_;
+        return $m->{type} if defined $m->{type} && length $m->{type};
+        my $tags = join(",", @{parse_tags($m->{tags} || "")});
+        return "feedback" if $file =~ /^feedback_/ || $tags =~ /\bfeedback\b/;
+        return "project-fact" if $file =~ /^project_/ || $tags =~ /\bproject\b/;
+        return "workflow" if $tags =~ /\b(workspace|organization|skills|pi)\b/;
+        return "legacy";
+      }
+
+      sub inferred_scope {
+        my ($m, $file) = @_;
+        return $m->{scope} if defined $m->{scope} && length $m->{scope};
+        return "dataset" if $file =~ /dataset/;
+        return "workspace";
+      }
+
+      my @notes;
+      for my $path (@files) {
+        my $file = $path; $file =~ s{^\Q$dir\E/}{};
+        my $m = meta_for($path);
+        my $tags = parse_tags($m->{tags} || "");
+        push @notes, {
+          file => $file,
+          title => $m->{title} || $file,
+          description => $m->{description} || "",
+          type => inferred_type($m, $file),
+          scope => inferred_scope($m, $file),
+          tags => $tags,
+          status => $m->{status} || "unknown",
+          verified => $m->{verified} || "",
+          source => $m->{source} || "",
+          re_verify_when => $m->{re_verify_when} || "",
+          legacy_missing_type => (!defined $m->{type} || !length $m->{type}) ? JSON::PP::true : JSON::PP::false,
+          legacy_missing_scope => (!defined $m->{scope} || !length $m->{scope}) ? JSON::PP::true : JSON::PP::false,
+          weak_provenance => (($m->{source} || "") =~ /sanitized workspace memory migration/i) ? JSON::PP::true : JSON::PP::false,
+        };
+      }
+      @notes = sort {
+        $a->{type} cmp $b->{type}
+          || lc($a->{title}) cmp lc($b->{title})
+          || $a->{file} cmp $b->{file}
+      } @notes;
+
+      my $md = "# Knowledge Index\n\n";
+      $md .= "Provider-neutral workspace learnings. Normalized notes live directly under `knowledge/`. Raw provider-local memory exports are not tracked in this repo.\n\n";
+      $md .= "Generated by `tools/knowledgectl index`. Do not hand-edit the generated section.\n\n";
+      $md .= "<!-- BEGIN GENERATED KNOWLEDGE INDEX -->\n";
+      my $current = "";
+      for my $n (@notes) {
+        if ($n->{type} ne $current) {
+          $current = $n->{type};
+          my $heading = $current;
+          $heading =~ s/-/ /g;
+          $heading =~ s/\b(\w)/\U$1/g;
+          $md .= "\n## $heading\n\n";
+        }
+        my $tags = join(", ", @{$n->{tags}});
+        my $suffix = $tags ? " - `$tags`" : "";
+        my $legacy = ($n->{legacy_missing_type} || $n->{legacy_missing_scope}) ? " _(legacy metadata)_" : "";
+        $md .= "- [$n->{title}]($n->{file})$suffix$legacy\n";
+      }
+      $md .= "\n<!-- END GENERATED KNOWLEDGE INDEX -->\n";
+
+      my $json = JSON::PP->new->canonical->pretty->encode({ generated_by => "tools/knowledgectl index", notes => \@notes });
+      my $index_path = "$dir/INDEX.md";
+      my $json_path = "$dir/index.json";
+
+      if ($check) {
+        my $old_md = "";
+        if (open my $fh, "<", $index_path) { local $/; $old_md = <$fh>; close $fh; }
+        my $old_json = "";
+        if (open my $jh, "<", $json_path) { local $/; $old_json = <$jh>; close $jh; }
+        my $changed = 0;
+        if ($old_md ne $md) { print "STALE $index_path\n"; $changed = 1; }
+        if ($old_json ne $json) { print "STALE $json_path\n"; $changed = 1; }
+        exit($changed ? 1 : 0);
+      }
+
+      open my $out, ">", $index_path or die "write $index_path: $!";
+      print {$out} $md;
+      close $out;
+      open my $jout, ">", $json_path or die "write $json_path: $!";
+      print {$jout} $json;
+      close $jout;
+      print "wrote $index_path\n";
+      print "wrote $json_path\n";
+    '
+    ;;
+  search)
+    shift
+    if [ "$#" -eq 0 ]; then
+      usage >&2
+      exit 2
+    fi
+    query="$*"
+    if command -v rg >/dev/null 2>&1; then
+      rg -n -i -- "$query" "$KNOWLEDGE_DIR"/*.md "$KNOWLEDGE_DIR/index.json" 2>/dev/null || true
+    else
+      grep -Rni -- "$query" "$KNOWLEDGE_DIR" || true
+    fi
+    ;;
+  stale)
+    KNOWLEDGE_DIR="$KNOWLEDGE_DIR" perl -Mstrict -Mwarnings -e '
+      my $dir = $ENV{KNOWLEDGE_DIR};
+      my @files = grep { !m{/(INDEX|README|TEMPLATE)\.md$} } sort glob("$dir/*.md");
+      sub trim {
+        my ($s) = @_;
+        $s = "" unless defined $s;
+        $s =~ s/^\s+|\s+$//g;
+        $s =~ s/^"(.*)"$/$1/;
+        $s =~ s/^'\''(.*)'\''$/$1/;
+        return $s;
+      }
+      sub meta_for {
+        my ($path) = @_;
+        open my $fh, "<", $path or die "open $path: $!";
+        my $first = <$fh>;
+        my %m;
+        if (defined $first && $first =~ /^---\s*$/) {
+          while (my $line = <$fh>) {
+            last if $line =~ /^---\s*$/;
+            if ($line =~ /^([A-Za-z0-9_-]+):\s*(.*)$/) {
+              $m{$1} = trim($2);
+            }
+          }
+        }
+        close $fh;
+        return \%m;
+      }
+      my $count = 0;
+      for my $path (@files) {
+        my $name = $path; $name =~ s{^\Q$dir\E/}{};
+        my $m = meta_for($path);
+        my @reasons;
+        push @reasons, "status=$m->{status}" if ($m->{status} || "") ne "active";
+        push @reasons, "missing type" unless defined $m->{type} && length $m->{type};
+        push @reasons, "missing scope" unless defined $m->{scope} && length $m->{scope};
+        push @reasons, "weak migration provenance" if ($m->{source} || "") =~ /sanitized workspace memory migration/i;
+        next unless @reasons;
+        ++$count;
+        print "$name: " . join("; ", @reasons) . "\n";
+      }
+      print "stale_candidates=$count\n";
+    '
+    ;;
+  -h|--help|help|"")
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

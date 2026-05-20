@@ -21,6 +21,7 @@ Pi should consume these files after activation. It should not create a separate 
 | `.pi/workflows/session-hygiene.json` | Inspect session drift and review safe remediation. |
 | `.pi/workflows/task-closeoff.json` | Build and review a safe task close-off plan. |
 | `.pi/workflows/pi-adapter-review.json` | Review Pi config for drift and unsafe assumptions. |
+| `.pi/workflows/research-to-knowledge.json` | Convert external research into workspace-specific learnings or no-action decisions. |
 
 ## Package Position
 

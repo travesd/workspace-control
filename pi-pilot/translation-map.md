@@ -31,9 +31,11 @@
 | workspace cross-review | fork scout/reviewer branches, join, synthesize |
 | task close-off | sequence status, close-off checklist, inventory, summary |
 | durable learning capture | classify learning, write knowledge note, propose skill/AGENTS updates |
+| research to knowledge | review external source, extract workspace-relevant implications, propose durable destination |
 
 ## Open Questions
 
 - Whether Pi should consume `agent-skills/skills/` directly or through generated `.pi/skills/` mirrors.
 - Whether Pi run artifacts should remain local-only or selected outputs should be promoted to task dirs.
 - Whether the `ultimate-pi` package is useful as inspiration only, or should be installed after source review.
+- Whether generated knowledge indexes should be consumed directly by Pi or exposed through a wrapper prompt/tool.

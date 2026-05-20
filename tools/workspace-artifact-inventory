@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="${WORKSPACE_ROOT:-/workspace}"
+CONTROL_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_ROOT="$ROOT/detection-platform-metal-work"
 
 count_dirs() {
@@ -43,9 +44,29 @@ echo "- dataset manifests: $(find "$ROOT/datasets" -type f \( -name MANIFEST.jso
 echo "- backup manifests: $(find "$ROOT/backups" -type f -name MANIFEST.json 2>/dev/null | wc -l)"
 echo
 
-echo "## Shared Skills"
+echo "## Live Shared Skills"
 if [ -d "$ROOT/agent-skills/skills" ]; then
   find "$ROOT/agent-skills/skills" -mindepth 1 -maxdepth 1 -type d -printf '- %f\n' | sort
+fi
+echo
+
+echo "## Workspace-Control Skills"
+if [ -d "$CONTROL_ROOT/agent-skills/skills" ]; then
+  find "$CONTROL_ROOT/agent-skills/skills" -mindepth 1 -maxdepth 1 -type d -printf '- %f\n' | sort
+fi
+echo
+
+echo "## Workspace-Control Knowledge"
+if [ -d "$CONTROL_ROOT/knowledge" ]; then
+  echo "- notes: $(find "$CONTROL_ROOT/knowledge" -maxdepth 1 -type f -name '*.md' ! -name INDEX.md ! -name README.md ! -name TEMPLATE.md | wc -l)"
+  if [ -x "$CONTROL_ROOT/tools/knowledgectl" ]; then
+    "$CONTROL_ROOT/tools/knowledgectl" stale | tail -n 1 | sed 's/^/- /'
+    if "$CONTROL_ROOT/tools/knowledgectl" index --check >/dev/null 2>&1; then
+      echo "- generated index: fresh"
+    else
+      echo "- generated index: stale"
+    fi
+  fi
 fi
 echo
 

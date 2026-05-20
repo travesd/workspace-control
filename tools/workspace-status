@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="${WORKSPACE_ROOT:-/workspace}"
+CONTROL_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_ROOT="$ROOT/detection-platform-metal-work"
 MODE="${1:---brief}"
 
@@ -41,6 +42,25 @@ if [ -f "$WORK_ROOT/SESSIONS.md" ]; then
   sed -n '/^## Summary/,/^## Live Recorded Sessions/p' "$WORK_ROOT/SESSIONS.md" | sed '$d'
   echo
 fi
+
+echo "## Knowledge Health"
+if [ -d "$CONTROL_ROOT/knowledge" ] && [ -x "$CONTROL_ROOT/tools/knowledgectl" ]; then
+  note_count="$(find "$CONTROL_ROOT/knowledge" -maxdepth 1 -type f -name '*.md' ! -name INDEX.md ! -name README.md ! -name TEMPLATE.md | wc -l)"
+  stale_line="$("$CONTROL_ROOT/tools/knowledgectl" stale | tail -n 1 || true)"
+  stale_count="${stale_line#stale_candidates=}"
+  if "$CONTROL_ROOT/tools/knowledgectl" index --check >/dev/null 2>&1; then
+    index_state="fresh"
+  else
+    index_state="stale"
+  fi
+  echo "- notes: $note_count"
+  echo "- stale candidates: ${stale_count:-unknown}"
+  echo "- generated index: $index_state"
+  echo "- index path: $CONTROL_ROOT/knowledge/INDEX.md"
+else
+  echo "- knowledge tooling unavailable"
+fi
+echo
 
 echo "## Current Directory"
 pwd

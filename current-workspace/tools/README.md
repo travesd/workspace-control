@@ -25,3 +25,7 @@ This is a sanitized snapshot of the workspace helper tools. Runtime caches and b
 - Do not source env files directly on the host.
 - Do not print secrets from `/workspace/db.env` or Cloudflare Access state.
 - Treat this snapshot as documentation and seed material; the live tools remain under `/workspace/tools/`.
+
+## Proposed Tooling Specs
+
+- `docs/specs/incident-scope-cache.md` describes a staged future direction for `datasetctl` retention/tag/cache semantics. It is not active live behavior.
