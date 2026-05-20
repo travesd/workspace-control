@@ -1,16 +1,11 @@
 ---
-title: "feedback workspace hygiene"
-tags: [imported, claude-memory, feedback]
+title: "Workspace hygiene enforcement"
+description: "Always create busy/<task>/ directory BEFORE generating any work artifacts - never dump files in workspace root or detection-platform-work root"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_workspace_hygiene.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: Workspace hygiene enforcement
-description: Always create busy/<task>/ directory BEFORE generating any work artifacts - never dump files in workspace root or detection-platform-work root
-type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 Always follow workspace organisation rules from the start of a task, not as an afterthought.

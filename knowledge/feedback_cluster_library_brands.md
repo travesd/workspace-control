@@ -1,16 +1,11 @@
 ---
-title: "feedback cluster library brands"
-tags: [imported, claude-memory, feedback]
+title: "Cluster brand is human/LLM assigned, not derived from columns"
+description: "SSDeep cluster brand field is set by LLM suggestion or human override during labeling — never derived from ASN, composition, or any other data column"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_cluster_library_brands.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: Cluster brand is human/LLM assigned, not derived from columns
-description: SSDeep cluster brand field is set by LLM suggestion or human override during labeling — never derived from ASN, composition, or any other data column
-type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 Cluster brand is a LABEL assigned during the labeling workflow (LLM suggest or human override). It is NOT derived from dominant_asn, composition, or any structural data field.

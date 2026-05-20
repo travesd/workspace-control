@@ -1,7 +1,7 @@
 # Claude-Side Cross-Review of Codex Findings
 
 Date: 2026-05-20
-Reviewer: Claude (Opus 4.7, session `60dffdd9`)
+Reviewer: Claude
 Inputs:
 - `reviews/codex-history-review.md` (Codex, 2026-05-20)
 - `reviews/claude-history-review.md` (Claude, 2026-05-20)
@@ -35,7 +35,7 @@ Recommend keeping all four — they hit different lifecycle points (start, mid, 
 
 ### 1. The harvest-debt is bigger than I quantified.
 
-I noted close-off is uneven; Codex put numbers on it. `busy/image-similarity-research/` is **11 GB / 457 k entries**; `busy/llm-rethink-domain-llm-v2/` 567 MB; `busy/autohunt-prompt-cache-followup/` 215 MB (Codex review line 16). On the Codex transcript side: `/home/user/.codex/sessions/.../019e26aa…jsonl` is **173 MB** (line 14). My finding #3 understated this — the >100 MB hard-stop I proposed for `task-closeoff` is at the right order of magnitude, but the policy should also flag any `busy/` task >1 GB as needing an immediate harvest decision, not just at close-off.
+I noted close-off is uneven; Codex put numbers on it. `busy/image-similarity-research/` is **11 GB / 457 k entries**; `busy/llm-rethink-domain-llm-v2/` 567 MB; `busy/autohunt-prompt-cache-followup/` 215 MB (Codex review line 16). On the Codex transcript side: Codex-local transcript store is **173 MB** (line 14). My finding #3 understated this — the >100 MB hard-stop I proposed for `task-closeoff` is at the right order of magnitude, but the policy should also flag any `busy/` task >1 GB as needing an immediate harvest decision, not just at close-off.
 
 ### 2. `datasets/INDEX.md` drift is wider than I caught.
 
@@ -43,7 +43,7 @@ Codex (line 18): "recursive manifest scan found 37 manifest/run records" while `
 
 ### 3. The Codex side of the session-recovery problem is worse than my numbers showed.
 
-Codex (line 13): `/home/user/.codex/history.jsonl` has 1,345 prompt records across **41 unique Codex session IDs**, only **5 of which appear in SESSIONS.md**. On the Claude side, all 73 Claude transcripts under `~/.claude/projects/-workspace/` are identifiable by their filename UUID, and `SESSIONS.md` lists 5–6 Claude session IDs. The gap on Codex's side is larger because:
+Codex (line 13): Codex-local history log has 1,345 prompt records across **41 unique Codex session IDs**, only **5 of which appear in SESSIONS.md**. On the Claude side, all 73 Claude transcripts under Claude-local transcript store are identifiable by their filename UUID, and `SESSIONS.md` lists 5–6 Claude session IDs. The gap on Codex's side is larger because:
 - Codex sessions don't expose preassigned IDs in process args (AGENTS.md §8 explicitly notes this).
 - Codex transcripts are individually huge (173 MB, 150 MB), so transcript-mining recovery is expensive.
 
@@ -98,7 +98,7 @@ Codex's open question (line 144) is right but unfinished. I'd commit to: **a ses
 
 ### Things Codex couldn't see (from this workspace), that affect its proposals
 - **Claude's memory loader.** It runs every session, prepends `MEMORY.md` + frontmatter from each `feedback_*` / `project_*` file into the system reminder. Any `knowledge/` migration must keep this loader fed or Claude's existing rules go dark on day one of migration. Codex doesn't reference this.
-- **`/insights` exists and produces useful aggregated reports.** Even when unavailable in a given session, prior outputs sit at `~/.claude/usage-data/`. Codex can't run it and may not have read its outputs.
+- **`/insights` exists and produces useful aggregated reports.** Even when unavailable in a given session, prior outputs sit at Claude-local usage-report store. Codex can't run it and may not have read its outputs.
 - **Claude's `--session-id` preassignment** is documented in AGENTS.md but Codex's review treats both providers symmetrically. Asymmetric capability means asymmetric hygiene workflows; the session-hygiene skill should branch on provider for the recording step.
 
 ### Things Claude couldn't see, that Codex's review surfaced
@@ -121,7 +121,7 @@ Codex's open question (line 144) is right but unfinished. I'd commit to: **a ses
 | `backups/README.md` derivation from manifests | Low | Low | Same pattern as INDEX.md. |
 | Existing `classifier-corpus-coverage` split | Medium | Medium | Defer until `busy/local-brand-snapshot-harvest/` task closes — Codex already flagged. |
 
-Biggest single-task risk: the memory migration. A failed migration means Claude loses its working rules at session start, which is the document that prevents most of the recurring friction we're documenting. Procedure: copy to `knowledge/`, keep `~/.claude/projects/-workspace/memory/` as-is for one full week, then have Claude's `MEMORY.md` become a generated pointer index from `knowledge/`.
+Biggest single-task risk: the memory migration. A failed migration means Claude loses its working rules at session start, which is the document that prevents most of the recurring friction we're documenting. Procedure: copy to `knowledge/`, keep Claude-local workspace memory store as-is for one full week, then have Claude's `MEMORY.md` become a generated pointer index from `knowledge/`.
 
 ## What Should Make the Final Prioritized Recommendations
 
@@ -145,7 +145,7 @@ Biggest single-task risk: the memory migration. A failed migration means Claude 
 
 ## Open Items for the Final Report
 
-- User decision: deprecate `~/.claude/projects/-workspace/memory/` after migration, or keep as Claude-local cache forever? I lean "make it a generated mirror" so Claude's existing loader keeps working without becoming an authoritative duplicate.
+- User decision: deprecate Claude-local workspace memory store after migration, or keep as Claude-local cache forever? I lean "make it a generated mirror" so Claude's existing loader keeps working without becoming an authoritative duplicate.
 - AGENTS.md verification cadence: weekly (`/schedule`) or only-on-failure (someone calls a claim "nonsense")? I lean weekly given the 2026-05-20 incident.
 - Whether `workspace-status` should write its output to `STATUS.md` as a side effect (so the next session can read it cheaply) or stay purely stdout. Side-effect risks staleness; stdout costs the tool calls. I lean stdout-only.
 - Ownership: who maintains the new `knowledge/` index after migration? Without a single owner, drift returns. Candidate: any `task-closeoff` that produces a learning auto-updates the index, plus `agents-md-review` flags rot.

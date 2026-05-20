@@ -1,16 +1,11 @@
 ---
-title: "feedback atlas sum"
-tags: [imported, claude-memory, feedback]
+title: "atlas.sum is auto-regenerated — don't flag it"
+description: "atlas.sum is regenerated during Docker image build; stale atlas.sum in git doesn't break migrations"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_atlas_sum.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: atlas.sum is auto-regenerated — don't flag it
-description: atlas.sum is regenerated during Docker image build; stale atlas.sum in git doesn't break migrations
-type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 **Never flag atlas.sum as a blocker or action item when adding migrations.**

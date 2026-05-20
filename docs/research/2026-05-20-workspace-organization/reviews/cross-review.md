@@ -21,7 +21,7 @@ This convergence is the strongest signal in the review. These should be implemen
 
 ## Corrections From Cross-Review
 
-- Claude's memory store is more mature than Codex initially weighted: `/home/user/.claude/projects/-workspace/memory/` has an indexed set of concise topic notes. The problem is not quality; it is that the store is provider-local.
+- Claude's memory store is more mature than Codex initially weighted: Claude-local workspace memory store has an indexed set of concise topic notes. The problem is not quality; it is that the store is provider-local.
 - Codex quantified the harvest and recovery debt more sharply: active task dirs include very large artifacts, and recent Codex transcripts can exceed 100 MB. Recovery should rely on explicit `resume.md` metadata, not transcript mining.
 - `workspace-status` and `workspace-artifact-inventory` should be distinct outputs even if they share implementation:
   - `workspace-status`: short daily orientation, hard-capped, suitable at session start.

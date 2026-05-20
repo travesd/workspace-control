@@ -19,12 +19,12 @@ The highest-value fix is a provider-neutral learning and status layer:
 
 - `busy/`: 26 task dirs, 25 resume files, one missing resume: `busy/autohunt-social-trace/`.
 - `SESSIONS.md`: multiple live panes need IDs; several resume files are non-standard or unparseable.
-- Claude memory: 28 markdown files under `/home/user/.claude/projects/-workspace/memory/`, with a concise `MEMORY.md` index.
-- Codex memory: no comparable populated workspace memory in `/home/user/.codex/memories`; visible config does not enable Codex memories.
+- Claude memory: 28 markdown files under Claude-local workspace memory store, with a concise `MEMORY.md` index.
+- Codex memory: no comparable populated workspace memory in Codex-local memory directory; visible config does not enable Codex memories.
 - Codex history: 41 unique Codex session IDs sampled from history, only 5 present in current `SESSIONS.md`.
 - Large active artifacts: `busy/image-similarity-research/` is about 11 GB / 457k entries.
 - Dataset/backups: per-artifact manifests are strong, but human indexes lag manifest reality.
-- `/insights`: not available in the live Claude session; prior static reports existed in `/home/user/.claude/usage-data/` and were useful evidence, but are provider-local.
+- `/insights`: not available in the live Claude session; prior static reports existed in Claude-local usage-report store and were useful evidence, but are provider-local.
 
 ## Recommended Changes
 
@@ -49,7 +49,7 @@ title: Verify before asserting
 tags: [workspace, review, evidence]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_verify_before_asserting.md
+source: sanitized workspace memory migration, 2026-05-20
 re_verify_when: "AGENTS.md verification rules or review workflow changes"
 ---
 ```

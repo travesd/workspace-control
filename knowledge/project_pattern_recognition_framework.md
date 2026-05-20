@@ -1,18 +1,13 @@
 ---
-title: "project pattern recognition framework"
-tags: [imported, claude-memory, project]
+title: "Pattern recognition framework"
+description: "Multi-signal pattern recognition framework on metal — umbrella concept, per-signal slicing, where curated-library matching belongs vs single-incident classifiers"
+tags: [project, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/project_pattern_recognition_framework.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
 ---
 
----
-name: pattern-recognition-framework
-description: Multi-signal pattern recognition framework on metal — umbrella concept, per-signal slicing, where curated-library matching belongs vs single-incident classifiers
-type: project
-originSessionId: b95b5b86-8b13-4170-b641-fd0c323f42c8
----
 Pattern recognition is metal's umbrella for "match incoming evidence against a curated, vetted library and produce a structured identification." Three issues span the framework:
 
 - **Umbrella + ssdeep matcher**: [Issue #10](https://github.com/phishfort/detection-platform-metal/issues/10) — `PatternRecognition` field on `Incident`; per-incident-type evaluation layers (`HTTPReq`, `DOM`, `Social`, `App`, `Extension`); per-signal slots (`SSDeep`, `TextEmbedding`, `LogoEmbedding`, `FaviconPHash`).

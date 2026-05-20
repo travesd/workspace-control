@@ -1,16 +1,11 @@
 ---
-title: "feedback ekey vs ecode"
-tags: [imported, claude-memory, feedback]
+title: "Use e.code not e.key for keyboard shortcuts with modifiers"
+description: "e.key returns the shifted character (Shift+. = \">\"), breaking shortcut detection. e.code returns the physical key. Playwright bypasses this."
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_ekey_vs_ecode.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: Use e.code not e.key for keyboard shortcuts with modifiers
-description: e.key returns the shifted character (Shift+. = ">"), breaking shortcut detection. e.code returns the physical key. Playwright bypasses this.
-type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 When implementing keyboard shortcuts that use Shift as a modifier, use `e.code` (physical key, e.g. `"Period"`) not `e.key` (character produced, e.g. `">"` when Shift is held).

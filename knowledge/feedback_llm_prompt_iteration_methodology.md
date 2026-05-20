@@ -1,19 +1,11 @@
 ---
-title: "feedback llm prompt iteration methodology"
-tags: [imported, claude-memory, feedback]
+title: "LLM prompt iteration methodology"
+description: "How to iterate LLM classifier/judge prompts in this codebase — concept-first framing, trace-justified disambiguators, variance characterization before comparing versions"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_llm_prompt_iteration_methodology.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: llm-prompt-iteration-methodology
-description: "How to iterate LLM classifier/judge prompts in this codebase — concept-first framing, trace-justified disambiguators, variance characterization before comparing versions"
-metadata: 
-  node_type: memory
-  type: feedback
-  originSessionId: 28c3594c-205d-4fc9-b9e5-54a5fdd9ae29
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 Methodology validated across the autohunt impersonation_check seam iteration (v0→v8) in PR #64 (merged 2026-05-15). Apply when iterating any LLM judge/classifier prompt (content_judge, impersonation_check, domain_judge, page_type, social judges, d2_analysis, etc.).

@@ -13,7 +13,7 @@ No repo code, active task dirs, or Claude outputs were modified.
 
 ### Provider-local memory is more important than I weighted it.
 
-My review identified the Claude memory gap, but Claude's review makes it the central issue with better evidence: 28 markdown files under `/home/user/.claude/projects/-workspace/memory/`, an indexed `MEMORY.md`, and high-value rules such as commit identity, ARG_MAX, PR base, and verify-before-asserting. That changes the priority: a provider-neutral knowledge store is not a nice-to-have; it should be the first implementation slice.
+My review identified the Claude memory gap, but Claude's review makes it the central issue with better evidence: 28 markdown files under Claude-local workspace memory store, an indexed `MEMORY.md`, and high-value rules such as commit identity, ARG_MAX, PR base, and verify-before-asserting. That changes the priority: a provider-neutral knowledge store is not a nice-to-have; it should be the first implementation slice.
 
 Important correction: simply creating `knowledge/` is insufficient. Claude needs a compatibility path so its current memory loader still sees the distilled rules. The final recommendation should include a migration plan that preserves Claude's `MEMORY.md` as a thin pointer or mirror until the new convention is proven.
 
@@ -34,7 +34,7 @@ I would not start with a weekly `agents-md-review` skill as a required process. 
 
 ### `/insights` evidence is useful but should not become a dependency.
 
-Claude verified `/insights` is not currently available in its session but found static reports under `/home/user/.claude/usage-data/`. Those reports add useful aggregate evidence, especially around repeated user correction patterns. The final recommendations should say: preserve `/insights` outputs into investigations when available, but do not build a core workspace process that assumes `/insights` exists.
+Claude verified `/insights` is not currently available in its session but found static reports under Claude-local usage-report store. Those reports add useful aggregate evidence, especially around repeated user correction patterns. The final recommendations should say: preserve `/insights` outputs into investigations when available, but do not build a core workspace process that assumes `/insights` exists.
 
 ## Disagreements Or Cautions
 
@@ -77,7 +77,7 @@ Both reviews used transcript/history scans for evidence. That is acceptable for 
 
 ## Risks Of Overfitting To Claude-Only Workflows
 
-- Claude memory is loaded automatically for Claude; Codex cannot rely on that. The final convention must be discoverable from `/workspace`, not `/home/user/.claude`.
+- Claude memory is loaded automatically for Claude; Codex cannot rely on that. The final convention must be discoverable from `/workspace`, not Claude-local home.
 - `/insights` reports are provider-local and currently unavailable as a live command. Treat them as evidence, not infrastructure.
 - Claude transcript scans include Claude-specific tool and prompt behavior. Shared skills should encode workspace facts and live commands, with provider-specific notes only where necessary.
 - Mirroring knowledge back into Claude memory can preserve current behavior, but the canonical edit path must remain provider-neutral to avoid split-brain documentation.

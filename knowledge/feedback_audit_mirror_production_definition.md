@@ -1,17 +1,11 @@
 ---
-title: "feedback audit mirror production definition"
-tags: [imported, claude-memory, feedback]
+title: "Audit must mirror production definition"
+description: "When auditing a production filter/classifier, the audit verdict definition MUST mirror that component's own definition — not a broader \"is it bad\" notion."
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_audit_mirror_production_definition.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: feedback-audit-mirror-production-definition
-description: When auditing a production filter/classifier, the audit verdict definition MUST mirror that component's own definition — not a broader "is it bad" notion.
-metadata:
-  type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 When auditing whether a production decision component (e.g. the autohunt

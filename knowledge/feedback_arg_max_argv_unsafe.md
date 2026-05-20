@@ -1,18 +1,13 @@
 ---
-title: "feedback arg max argv unsafe"
-tags: [imported, claude-memory, feedback]
+title: "ARG_MAX — large strings in argv are unsafe above ~128 KB"
+description: "Any shell command where a large value goes into argv (curl -d, jq --argjson, python -c, etc.) will fail with \"Argument list too long\" above ~128 KB; use tempfile or stdin"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_arg_max_argv_unsafe.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: ARG_MAX — large strings in argv are unsafe above ~128 KB
-description: Any shell command where a large value goes into argv (curl -d, jq --argjson, python -c, etc.) will fail with "Argument list too long" above ~128 KB; use tempfile or stdin
-type: feedback
-originSessionId: 3a6db8e5-07f8-4b01-83d9-1ee422701a50
----
 Any shell pattern that passes a large string as a command-line argument — `curl -d "$data"`, `jq --argjson map "$big"`, `python -c "$script"`, `-e VAR=<huge>` on docker run — is ARG_MAX-unsafe above roughly 128 KB, and FAILS LOUDLY AND MISLEADINGLY on larger inputs. Rewrite to use a file or stdin instead.
 
 **Why:** Hit this three times in one task (`migrate-sh-data-sync`, PR metal#7):

@@ -1,16 +1,11 @@
 ---
-title: "feedback ssdeep promote client only"
-tags: [imported, claude-memory, feedback]
+title: "Only promote ssdeep clusters with client domain brands"
+description: "Non-client malicious ssdeep clusters cause false positives and can't route to gatekeeper — only promote clusters where brand matches an active client domain"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_ssdeep_promote_client_only.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: Only promote ssdeep clusters with client domain brands
-description: Non-client malicious ssdeep clusters cause false positives and can't route to gatekeeper — only promote clusters where brand matches an active client domain
-type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 SSDeep classifier sets `safeDomain = brand` field from the hash entry. The gatekeeper's `findClient()` matches safeDomain against client domain lists. If brand is a name (e.g., "OnlyFans", "MetaMask") instead of a client domain (e.g., "trezor.io"), gatekeeper routing fails.

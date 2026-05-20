@@ -7,12 +7,78 @@ echo "# Secret/Large-File Check"
 echo "Root: $ROOT"
 echo
 
+status=0
+
 echo "## Files Over 1 MB"
-find "$ROOT" -path "$ROOT/.git" -prune -o -type f -size +1M -print
+large_files="$(find "$ROOT" -path "$ROOT/.git" -prune -o -type f -size +1M -print)"
+if [ -n "$large_files" ]; then
+  printf '%s\n' "$large_files"
+  status=1
+else
+  echo "None"
+fi
 echo
 
-echo "## Direct Secret-Like Assignments"
-rg -n "BEGIN [A-Z ]*PRIVATE|api[_-]?key\\s*[:=]|secret\\s*[:=]|token\\s*[:=]|password\\s*[:=]|credential\\s*[:=]" "$ROOT" -g '!*.git/*' || true
+echo "## High-Confidence Secret Findings"
+findings="$(
+  ROOT="$ROOT" perl -Mstrict -Mwarnings -MFile::Find -e '
+    my $root = $ENV{ROOT};
+    my @findings;
+    my %seen;
+
+    sub wanted {
+      my $path = $File::Find::name;
+      return unless -f $path;
+      return if $path =~ m{/\.(git)(/|$)};
+      return if $path =~ /\.(png|jpe?g|webp|gif|parquet|duckdb|sqlite|sqlite-\w*)$/i;
+      return unless -T $path;
+
+      open my $fh, "<", $path or return;
+      my $line_no = 0;
+      while (my $line = <$fh>) {
+        ++$line_no;
+        if ($line =~ /BEGIN [A-Z ]*PRIVATE KEY/) {
+          push @findings, "$path:$line_no:private-key-block";
+          next;
+        }
+
+        while ($line =~ /(["'\'']?)(api[_-]?key|client[_-]?secret|private[_-]?key|access[_-]?token|refresh[_-]?token|psql[_-]?password|password|credential|secret|token)\1\s*[:=]\s*(["'\'']?)([^"'\''\s#<>]+)/ig) {
+          my ($key, $value) = (lc($2), $4);
+          my $clean_value = $value;
+          $clean_value =~ s/[,\);]+$//;
+          next if $line =~ /\$\{/;
+          next if $line =~ /^\s*(def|class)\b/;
+          next if $value =~ /^\$/;
+          next if $value =~ /^\$\{/;
+          next if $clean_value =~ /^(str|int|float|bool|none|self|args|password|token)$/i;
+          next if $clean_value =~ /^(args|self|os|env_values|result)\./;
+          next if $value =~ /[()\[\]{}]/;
+          next if $clean_value =~ /^(redacted|example|placeholder|changeme|your_|xxx+|null|none|false|true)$/i;
+          my $id = "$path:$line_no:$key";
+          next if $seen{$id}++;
+          push @findings, $id;
+        }
+      }
+      close $fh;
+    }
+
+    find({ wanted => \&wanted, no_chdir => 1 }, $root);
+    print join("\n", @findings);
+    print "\n" if @findings;
+  '
+)"
+if [ -n "$findings" ]; then
+  printf '%s\n' "$findings"
+  status=1
+else
+  echo "None"
+fi
 echo
 
-echo "Review any hits manually. Variable names and documentation references can be false positives; real values must not be committed."
+if [ "$status" -ne 0 ]; then
+  echo "Review findings before committing or pushing. Values are intentionally redacted."
+else
+  echo "No high-confidence large-file or secret findings."
+fi
+
+exit "$status"

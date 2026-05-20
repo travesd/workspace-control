@@ -1,18 +1,13 @@
 ---
-title: "feedback filter service tranco bypass"
-tags: [imported, claude-memory, feedback]
+title: "filter-service Tranco bypass for local-stack startup"
+description: "When filter-service fails to start in a fresh local stack with \"Initial refresh failed; starting with empty set: unzip: context deadline exceeded\", point TRANCO_LIST_URL at a fast-fail address so FX OnStart returns before its deadline."
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_filter_service_tranco_bypass.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: filter-service Tranco bypass for local-stack startup
-description: When filter-service fails to start in a fresh local stack with "Initial refresh failed; starting with empty set: unzip: context deadline exceeded", point TRANCO_LIST_URL at a fast-fail address so FX OnStart returns before its deadline.
-type: feedback
-originSessionId: 8211f084-0b86-43f5-960a-285716976baa
----
 When starting a fresh `gatewayctl` local stack and `filter-service` keeps restarting with logs like:
 
 ```

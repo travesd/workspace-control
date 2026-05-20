@@ -1,19 +1,11 @@
 ---
-title: "project curated 70 sample dataset"
-tags: [imported, claude-memory, project]
+title: "Curated 70-sample impersonation dataset"
+description: "Ground-truth labeled dataset for impersonation_check seam evaluation — 50 impersonation + 20 non-impersonation cases across 14+ brands"
+tags: [project, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/project_curated_70_sample_dataset.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: curated-70-sample-dataset
-description: Ground-truth labeled dataset for impersonation_check seam evaluation — 50 impersonation + 20 non-impersonation cases across 14+ brands
-metadata: 
-  node_type: memory
-  type: project
-  originSessionId: 28c3594c-205d-4fc9-b9e5-54a5fdd9ae29
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
 ---
 
 Ground-truth labeled dataset for evaluating the autohunt impersonation_check seam (PR #64, MERGED 2026-05-15).

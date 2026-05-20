@@ -1,18 +1,13 @@
 ---
-title: "project llm classifier ground truth"
-tags: [imported, claude-memory, project]
+title: "LLM classifier ground truth principles"
+description: "Repo-agnostic principles for LLM classifier ground truth — corpus is authoritative, clientId is not an LLM input, tainted-template handling, social corpus matching rules."
+tags: [project, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/project_llm_classifier_ground_truth.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
 ---
 
----
-name: LLM classifier ground truth principles
-description: Repo-agnostic principles for LLM classifier ground truth — corpus is authoritative, clientId is not an LLM input, tainted-template handling, social corpus matching rules.
-type: project
-originSessionId: b822048f-5ea0-4685-be40-ed454892fc03
----
 Principles that govern LLM classifier ground truth in detection-platform-metal. These are stable and repo-agnostic — apply when reviewing classifier outputs, building ground truth, or validating expected files.
 
 - **Corpus is the only source of truth** — never use general knowledge to vouch for entities. If it isn't in the corpus, it isn't verified.

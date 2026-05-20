@@ -56,6 +56,10 @@ detection-platform-metal-work/later/
 .pi/harness/active-run.json
 .pi/sessions/
 .pi/logs/
+.pi/npm/
+.pi/git/
+.pi/packages/
+.pi/cache/
 
 # OS/editor
 .DS_Store

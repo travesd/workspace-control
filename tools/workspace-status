@@ -3,6 +3,22 @@ set -euo pipefail
 
 ROOT="${WORKSPACE_ROOT:-/workspace}"
 WORK_ROOT="$ROOT/detection-platform-metal-work"
+MODE="${1:---brief}"
+
+case "$MODE" in
+  --brief|"")
+    active_lines=50
+    worktree_lines=40
+    ;;
+  --full)
+    active_lines=200
+    worktree_lines=200
+    ;;
+  *)
+    echo "usage: $0 [--brief|--full]" >&2
+    exit 2
+    ;;
+esac
 
 echo "# Workspace Status"
 date -u +"Generated: %Y-%m-%d %H:%M:%SZ"
@@ -10,7 +26,11 @@ echo
 
 if [ -f "$WORK_ROOT/ACTIVE.md" ]; then
   echo "## Active Work"
-  sed -n '1,80p' "$WORK_ROOT/ACTIVE.md"
+  sed -n "1,${active_lines}p" "$WORK_ROOT/ACTIVE.md"
+  if [ "$MODE" = "--brief" ]; then
+    echo
+    echo "_Use \`tools/workspace-status --full\` for the expanded active-work listing._"
+  fi
   echo
 else
   echo "Missing ACTIVE.md at $WORK_ROOT/ACTIVE.md"
@@ -31,7 +51,11 @@ if [ -d "$ROOT/detection-platform-metal" ]; then
   git -C "$ROOT/detection-platform-metal" worktree list --porcelain | awk '
     /^worktree / {wt=$0; sub(/^worktree /, "", wt); print "- " wt}
     /^branch / {print "  " $0}
-  ' | sed -n '1,80p'
+  ' | sed -n "1,${worktree_lines}p"
+  if [ "$MODE" = "--brief" ]; then
+    echo
+    echo "_Use \`tools/workspace-status --full\` for more worktrees._"
+  fi
 else
   echo "- detection-platform-metal repo not found"
 fi

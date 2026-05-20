@@ -7,7 +7,7 @@
 | `/workspace/AGENTS.md` | Always-loaded workspace rules | Root `AGENTS.md`; Pi must preserve these guardrails |
 | `/workspace/agent-skills/skills/` | Shared reusable workflows | `agent-skills/skills/`; optionally exposed through `.pi/skills/` or Pi settings |
 | `/workspace/detection-platform-metal-work/*` | Task lifecycle and artifacts | Pi workflows should write plans/reviews back to task dirs, not only Pi run dirs |
-| `/home/user/.claude/projects/-workspace/memory/` | Claude-local learnings | Migrated into provider-neutral `knowledge/` |
+| Claude-local workspace memory store | Claude-local learnings | Migrated into provider-neutral `knowledge/` |
 | `/workspace/tools/agents/sessionctl` | Session tracking | Future `session-hygiene` workflow/tool wrapper |
 | `/workspace/workspace-control/tools/workspace-status` | Live orientation report | Pi prompt/skill entry point for session start |
 | `/workspace/workspace-control/tools/workspace-artifact-inventory` | Audit-grade inventory | Pi workflow evidence source |

@@ -1,16 +1,11 @@
 ---
-title: "feedback ssdeep block size 96"
-tags: [imported, claude-memory, feedback]
+title: "Block-size 96 ssdeep httpreq hashes are unreliable"
+description: "ssdeep hashes at block size 96 (especially httpreq type) match HTTP boilerplate too broadly — set match_threshold=0.85 minimum and prefer DOM hashes"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_ssdeep_block_size_96.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: Block-size 96 ssdeep httpreq hashes are unreliable
-description: ssdeep hashes at block size 96 (especially httpreq type) match HTTP boilerplate too broadly — set match_threshold=0.85 minimum and prefer DOM hashes
-type: feedback
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
 Block size 96 captures ~6KB of structure. For httpreq hashes, this is dominated by HTTP headers/boilerplate shared across unrelated sites. The `96:1j9j...` Cloudflare hash family had a 4.7% false positive rate, matching crunchbase.com, luminor.lt, forum.mikro.com.tr at 88-96% similarity.

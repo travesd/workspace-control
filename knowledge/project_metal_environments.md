@@ -1,18 +1,13 @@
 ---
-title: "project metal environments"
-tags: [imported, claude-memory, project]
+title: "Metal staging/prod exist alongside still-active legacy GKE"
+description: "Metal has its own staging and prod environments; legacy non-metal staging/prod are still active in parallel. Distinguish via /workspace/classifiers.pipeline-*.env files."
+tags: [project, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/project_metal_environments.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
 ---
 
----
-name: Metal staging/prod exist alongside still-active legacy GKE
-description: Metal has its own staging and prod environments; legacy non-metal staging/prod are still active in parallel. Distinguish via /workspace/classifiers.pipeline-*.env files.
-type: project
-originSessionId: 0a249e86-4b17-4516-81b9-13fcec4c780d
----
 Metal has its own staging and prod environments. The legacy non-metal (GKE) staging and prod are **also still active**, serving traffic in parallel during migration.
 
 **How to tell which is which** — `/workspace/classifiers.pipeline-*.env`:

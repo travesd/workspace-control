@@ -1,7 +1,7 @@
 # Claude History Review
 
 Date: 2026-05-20
-Reviewer: Claude (Opus 4.7, 1M context, session `60dffdd9`)
+Reviewer: Claude
 Scope: workspace artifacts, recent Claude transcripts, Claude provider-local memory, the prior `/insights` report output, and the available Claude skill set. No transcript quotes long enough to leak prompts or secrets; evidence given as paths and counts.
 
 ## `/insights` Availability
@@ -9,9 +9,9 @@ Scope: workspace artifacts, recent Claude transcripts, Claude provider-local mem
 **`/insights` is NOT currently available in this Claude session.**
 
 - Not in the system-reminder skill list for this session.
-- Not in `/workspace/.claude/skills/`, `/home/user/.claude/skills/` (no such dir), `/home/user/.claude/commands/` (empty), or any installed plugin under `/home/user/.claude/plugins/cache/`.
+- Not in `/workspace/.claude/skills/`, Claude-local skills directory (no such dir), Claude-local commands directory (empty), or any installed plugin under Claude-local plugin cache.
 - The Superpowers plugin v5.1.0 ships 14 skills (`finishing-a-development-branch`, `systematic-debugging`, `brainstorming`, ...); none is `insights`.
-- `/home/user/.claude/history.jsonl` shows `/insights` was invoked 5 times across this workspace: 2026-03-30, 2026-04-14, and three times on 2026-05-19. Each run produced a static HTML report; the three most recent live at `/home/user/.claude/usage-data/report-2026-05-19-*.html`.
+- Claude-local history log shows `/insights` was invoked 5 times across this workspace: 2026-03-30, 2026-04-14, and three times on 2026-05-19. Each run produced a static HTML report; the three most recent live at Claude-local usage-report store.
 
 I used the most recent of those (`report-2026-05-19-171058.html`, generated 2026-05-19) as a substitute data source because it covers 774 messages across 50 sessions from 2026-04-16 → 2026-05-19 — a richer dataset than I could mine inside this turn. Findings below mark which evidence came from that report vs. live transcript/file scan.
 
@@ -25,12 +25,12 @@ I used the most recent of those (`report-2026-05-19-171058.html`, generated 2026
 - `investigations/` holds 11 dirs including this one and `session-recovery-20260512` — itself evidence that recovery is recurring work.
 
 ### Provider-local memory (Claude-only)
-- `/home/user/.claude/projects/-workspace/memory/`: 28 markdown files + `MEMORY.md` index (540 lines total). Index is well curated: `feedback_*` (rules), `project_*` (current context), pointers to archived GKE memories.
+- Claude-local workspace memory store: 28 markdown files + `MEMORY.md` index (540 lines total). Index is well curated: `feedback_*` (rules), `project_*` (current context), pointers to archived GKE memories.
 - This store is loaded into every Claude session via the system reminder but is **not visible to Codex by workspace contract** (Codex would have to grep host paths). 11 user-message references to "memory" appeared in recent transcripts.
 - Examples of high-value durable rules that only live here: `feedback_verify_before_asserting.md` (7 past incidents), `feedback_git_commit_identity.md`, `feedback_arg_max_argv_unsafe.md`, `feedback_pr_default_base_main.md`.
 
 ### Recent Claude transcripts (live scan)
-- 73 .jsonl files under `/home/user/.claude/projects/-workspace/`, 735 MB total. Largest single transcript 32.5 MB (`28c3594c…` 2026-05-15) — that is a single Claude session.
+- 73 .jsonl files under Claude-local transcript store, 735 MB total. Largest single transcript 32.5 MB (session id redacted) — that is a single Claude session.
 - Sampled the 8 most recent sessions. Cross-session lookup counts (mentions in transcript blob, not all "fresh reads", but a useful proxy):
 
   | Lookup pattern              | Hits | Sessions (of 15) |
@@ -57,7 +57,7 @@ I used the most recent of those (`report-2026-05-19-171058.html`, generated 2026
 - "ultrathink": 128 instances across 10 sessions — i.e. the user routinely has to escalate me to think harder. The `/insights` report scored "Frustrated/Dissatisfied" at 30 of 194 satisfaction signals, dominated by "Buggy Code" (23) and "Wrong Approach" (23).
 - Concrete recent corrections (this week):
   - `04f1660e` 2026-05-20: "AGENTS.md gotcha says the LLM judge benefits from the full-page screenshot — this is nonsense". A stale AGENTS.md claim caused an off-target plan.
-  - `20c69ebd` 2026-05-20: "where did pfmailyer user come from? … who the fuck is changing who we commit as?" Commit-identity drift recurred even though it is the most recently saved feedback memory (`feedback_git_commit_identity.md`).
+  - 2026-05-20: commit-identity correction. Commit-identity drift recurred even though it is the most recently saved feedback memory (`feedback_git_commit_identity.md`).
   - `39a54f02` 2026-05-20: "no thats not the only discriminator, it was an example :facepalm". Over-fit to a single example.
 
 ### From the 2026-05-19 `/insights` report (50-session aggregate)
@@ -70,7 +70,7 @@ I used the most recent of those (`report-2026-05-19-171058.html`, generated 2026
 
 ### 1. Durable learnings are trapped in Claude-local memory; Codex can't see them by contract.
 
-`MEMORY.md` is the highest-leverage knowledge surface in this workspace — 28 files of distilled rules — but it lives under `~/.claude/projects/-workspace/memory/` and is loaded only into Claude. Codex's review (line 21) flags the same gap from its side. Recent in-session corrections (commit identity, screenshot gotcha) show the rules exist *and* still get violated, so part of the fix is mirroring them into a provider-neutral store, and part is making them harder to ignore at decision time, not just at session start.
+`MEMORY.md` is the highest-leverage knowledge surface in this workspace — 28 files of distilled rules — but it lives under Claude-local workspace memory store and is loaded only into Claude. Codex's review (line 21) flags the same gap from its side. Recent in-session corrections (commit identity, screenshot gotcha) show the rules exist *and* still get violated, so part of the fix is mirroring them into a provider-neutral store, and part is making them harder to ignore at decision time, not just at session start.
 
 This is the single change with the broadest cross-agent payoff: every workspace learning becomes addressable from either provider.
 
@@ -88,7 +88,7 @@ Of 25 resume files, 9 are non-standard. The three "critical in-flight" tasks in 
 
 ### 5. `/insights` is high-leverage but ephemeral, provider-local, and not promoted into durable artifacts.
 
-The 2026-05-19 report contains insights the workspace would benefit from forever — multi-clauding overlap, satisfaction-by-pattern, top-error breakdown — but it is an HTML file under `/home/user/.claude/usage-data/`. No task `notes.md` references it; no skill consumes it; Codex can't see it. The user expected `/insights` to work today and was redirected by the lack-of-availability flag. Either `/insights` should be made callable in this environment (out of scope here) or its outputs should be promoted into `investigations/` + `MEMORY.md` whenever it does run.
+The 2026-05-19 report contains insights the workspace would benefit from forever — multi-clauding overlap, satisfaction-by-pattern, top-error breakdown — but it is an HTML file under Claude-local usage-report store. No task `notes.md` references it; no skill consumes it; Codex can't see it. The user expected `/insights` to work today and was redirected by the lack-of-availability flag. Either `/insights` should be made callable in this environment (out of scope here) or its outputs should be promoted into `investigations/` + `MEMORY.md` whenever it does run.
 
 ### 6. Stale claims in `AGENTS.md` are now causing wrong moves.
 
@@ -106,10 +106,10 @@ Each entry lists purpose, trigger, source of truth, and anti-staleness rule.
 - **Diff from Codex's `workspace-artifact-inventory`**: that one is for *audit* (counts, drift, cleanup planning); this one is for *daily start-of-session orientation*. Same underlying joins, different reduction.
 
 ### `durable-learning-capture` (new, shared) — aligned with Codex's proposal
-- **Purpose**: decide where a new rule belongs (AGENTS.md vs shared skill vs knowledge note vs provider memory) and write it with verification metadata. Specifically migrate the existing Claude `~/.claude/projects/-workspace/memory/` into a provider-neutral `detection-platform-metal-work/knowledge/` tree with one-shot mirroring.
+- **Purpose**: decide where a new rule belongs (AGENTS.md vs shared skill vs knowledge note vs provider memory) and write it with verification metadata. Specifically migrate the existing Claude Claude-local workspace memory store into a provider-neutral `detection-platform-metal-work/knowledge/` tree with one-shot mirroring.
 - **Trigger**: "remember this", "save a memory", post-mortem learning, repeated gotcha, `/insights` run that surfaces a new pattern.
 - **Source of truth**: workspace `knowledge/` tree + `AGENTS.md`.
-- **Anti-staleness**: every note must record source artifact, verification date, and a "re-verify before relying on this" condition. Mirror back to `~/.claude/projects/-workspace/memory/MEMORY.md` index so Claude's existing memory loader still picks it up.
+- **Anti-staleness**: every note must record source artifact, verification date, and a "re-verify before relying on this" condition. Mirror back to Claude-local workspace memory storeMEMORY.md` index so Claude's existing memory loader still picks it up.
 
 ### `task-closeoff` (new, shared) — Codex also proposed this
 - **Purpose**: enforce the close-off sequence mechanically: verify PR/branch, write `SUMMARY.md`, **harvest data products** out of `busy/<task>/`, update `DAY.md` / `done/INDEX.md`, regenerate sessions, then offer to remove worktree.
@@ -157,7 +157,7 @@ Lookup order for both providers:
 
 - **Provider-memory migration is destructive if rushed.** Run it once, in a single task, with a backup of the original `memory/` tree. Claude must still find its rules at session start — keep `MEMORY.md` as a pointer index until the new convention is proven.
 - **More skills = more drift.** Each new shared skill needs a verification date; otherwise we'll repeat the AGENTS.md problem at skill scale. The `agents-md-review` skill should cover skills too.
-- **`/insights` is the best signal we have but it's not in this environment.** Worth checking: is `/insights` part of an Anthropic-managed skill bundle that we should enable as a plugin in this workspace? If not, we can approximate its key sections with a custom skill that re-reads transcripts under `~/.claude/projects/-workspace/` — but transcript-format stability is an Anthropic-internal concern, so this would be brittle.
+- **`/insights` is the best signal we have but it's not in this environment.** Worth checking: is `/insights` part of an Anthropic-managed skill bundle that we should enable as a plugin in this workspace? If not, we can approximate its key sections with a custom skill that re-reads transcripts under Claude-local transcript store — but transcript-format stability is an Anthropic-internal concern, so this would be brittle.
 - **`workspace-status` scope creep.** Hard-cap at 200 lines of output. The point is to replace 8 commands with 1, not to dump everything.
 - **The "ultrathink" tax (128 instances over 15 sessions) is partly a model-quality problem, not a workspace problem.** Workspace changes can reduce the rediscovery-induced share of it; they cannot eliminate the genuine-hard-problem share.
 - **Open**: do any current Claude task dirs use a resume.md format that `sessionctl` parses *because* it's Claude-generated, but Codex's writer can't reproduce? Worth a one-task audit before declaring the schema cross-provider.

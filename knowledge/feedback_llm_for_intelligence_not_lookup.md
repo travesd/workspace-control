@@ -1,18 +1,13 @@
 ---
-title: "feedback llm for intelligence not lookup"
-tags: [imported, claude-memory, feedback]
+title: "LLM workflows add intelligence, not execute lookup tables"
+description: "Detection-platform governing principle — use LLMs only for content understanding, multimodal reasoning, novel-pattern detection; move lookup tables, string matching, and policy matrices to code even when they currently live in a prompt"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_llm_for_intelligence_not_lookup.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: LLM workflows add intelligence, not execute lookup tables
-description: Detection-platform governing principle — use LLMs only for content understanding, multimodal reasoning, novel-pattern detection; move lookup tables, string matching, and policy matrices to code even when they currently live in a prompt
-type: feedback
-originSessionId: a9d4383d-0f97-4c25-927b-d1cb1f8fb877
----
 **Rule:** In detection-platform LLM workflows, use LLMs for the things code can't do well — content understanding, multimodal reasoning, novel-pattern detection, ambiguity handling. Use code for lookup tables, string matching, suffix classification, edit distance, policy matrices, and deterministic rules — even when those currently live inside a prompt.
 
 **Why:** User stated this explicitly during the llm-judge-domain-workflows review (2026-04-10): "the point of our workflows is to add intelligence to cover things we can't do with ML models." The current d2_analysis_v4 violates this principle in several places:

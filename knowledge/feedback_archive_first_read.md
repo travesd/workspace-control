@@ -1,18 +1,13 @@
 ---
-title: "feedback archive first read"
-tags: [imported, claude-memory, feedback]
+title: "Archive-first read when porting"
+description: "When a task has an archived counterpart, read the archive's reference implementation BEFORE writing new code — not after the first bug"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_archive_first_read.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: Archive-first read when porting
-description: When a task has an archived counterpart, read the archive's reference implementation BEFORE writing new code — not after the first bug
-type: feedback
-originSessionId: 3a6db8e5-07f8-4b01-83d9-1ee422701a50
----
 When the metal repo gets a task that was already solved in the archived detection-platform repo (pattern: `migrate` tooling, `snapshot portability`, `client restore`, any cross-env data sync), the archived implementation in `/workspace/archive/detection-platform.worktrees/<branch>/tools/classifiers/` or the matching service dir is almost always the proven reference. Read it BEFORE writing the new code, not after the first dry-run fails.
 
 **Why:** On the `migrate-sh-data-sync` task (PR metal#7, 2026-04-23), I wrote `migrate_snapshots` and `migrate_detection_data` by inferring semantics from metal's API shape and reading the schema. The archived `classifier_data_bundle_lib.py` already had all the non-obvious decisions nailed down: only remap `sourceType=="snapshot"` (not corpus/incident — those use `sourceRef` for non-snapshot tags like `"seed:2026-03-25"`), export only snapshots referenced by detection_data (not the whole snapshots table), group promote calls by `(clientId, sourceType, sourceRef, promotedBy)` to preserve provenance. Cost ~4 dry-run iterations + user annoyance ("you made some bullshit assumptions without reading the task or code again") before I went back and read the archive. Once I did, one surgical rewrite passed cleanly.

@@ -1,6 +1,6 @@
 # Shared Agent Skills
 
-This directory mirrors the current canonical shared skills from `/workspace/agent-skills/skills/`.
+This directory is the workspace-control copy of shared skills. While this repo is being prepared, edit proposed canonical skill content here first. The live workspace still consumes `/workspace/agent-skills/skills/` until an activation/sync step is explicitly approved.
 
 These skills are intended to be portable between Claude and Codex. Pi can also consume Agent Skills from project paths, but the Pi pilot should not silently diverge from these canonical skills.
 
@@ -15,6 +15,7 @@ These skills are intended to be portable between Claude and Codex. Pi can also c
 
 Before changing skills:
 
-1. Edit canonical skill content here.
-2. Validate with the workspace skill tooling after the change is ready to activate.
-3. Sync to `/workspace/agent-skills/skills/`, `/workspace/.claude/skills/`, and `/workspace/.agents/skills/` only after approval.
+1. Edit skill content here.
+2. Review the change in this repo.
+3. After approval, sync to `/workspace/agent-skills/skills/`.
+4. Run `/workspace/tools/skills/skillctl validate` and `/workspace/tools/skills/skillctl sync` from the live workspace.

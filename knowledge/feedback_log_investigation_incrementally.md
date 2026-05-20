@@ -1,18 +1,13 @@
 ---
-title: "feedback log investigation incrementally"
-tags: [imported, claude-memory, feedback]
+title: "Log investigations incrementally, not at the end"
+description: "For deep investigations/reviews, update notes.md and a dedicated investigation doc AS you read files — don't let findings live only in conversation context"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_log_investigation_incrementally.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: Log investigations incrementally, not at the end
-description: For deep investigations/reviews, update notes.md and a dedicated investigation doc AS you read files — don't let findings live only in conversation context
-type: feedback
-originSessionId: a9d4383d-0f97-4c25-927b-d1cb1f8fb877
----
 When doing a deep investigation or design review that spans many files, log findings to disk incrementally as you read, not just at the end.
 
 **Why:** User called this out on the llm-judge-domain-workflows task (2026-04-10) after I was about to dispatch a big Explore agent and return only a final synthesis. Deep investigations risk having findings evaporate if context compresses, and the user can't see progress or correct the direction early. Notes on disk survive; context doesn't.

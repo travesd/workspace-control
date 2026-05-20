@@ -9,6 +9,8 @@ It has two tracks:
 
 The source of truth should remain provider-neutral. Claude memory, Codex memory, and Pi configuration may mirror or consume this repo, but should not become separate canonical stores.
 
+This repo is not activated into the live workspace automatically. See `ACTIVATION.md` for the current source-of-truth boundary and sync gates.
+
 ## What Belongs Here
 
 - Workspace instructions and conventions.
@@ -23,23 +25,23 @@ The source of truth should remain provider-neutral. Claude memory, Codex memory,
 
 - Secrets or env files.
 - Raw datasets, backups, screenshots, or task artifacts.
-- Provider transcripts or local harness databases.
+- Provider transcripts, provider-local memory exports, or local harness databases.
 - Product repo code and worktrees.
 
 ## First Slice
 
-This initial scaffold imports:
+This scaffold contains:
 
 - current workspace instructions from `/workspace/AGENTS.md` and `/workspace/CLAUDE.md`,
 - current shared skills from `/workspace/agent-skills/skills/`,
 - the 2026-05-20 workspace organization investigation outputs,
-- a raw copy of Claude workspace memory under `knowledge/imported/claude-memory/`,
+- normalized provider-neutral knowledge notes under `knowledge/`,
 - a Pi pilot area with draft agents and workflow mapping.
 
-Future work should migrate imported memory into normalized `knowledge/*.md` notes before deleting or deprecating the imported copy.
+Raw provider-local memory exports are intentionally not tracked. See `SANITIZATION.md`.
 
 ## Helper Scripts
 
 - `tools/workspace-status` - short live orientation report for agents.
 - `tools/workspace-artifact-inventory` - audit-grade inventory for cleanup/review work.
-- `tools/check-sensitive-content` - large-file and obvious secret-pattern check before commits.
+- `tools/check-sensitive-content` - large-file and redacted secret-pattern check before commits or remotes.

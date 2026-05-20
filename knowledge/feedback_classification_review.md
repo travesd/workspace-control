@@ -1,18 +1,13 @@
 ---
-title: "feedback classification review"
-tags: [imported, claude-memory, feedback]
+title: "Classification review learnings"
+description: "Procedural rules for /review-classification — what to check, what to exclude, push conventions"
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_classification_review.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: Classification review learnings
-description: Procedural rules for /review-classification — what to check, what to exclude, push conventions
-type: feedback
-originSessionId: b822048f-5ea0-4685-be40-ed454892fc03
----
 Don't assume AI-flagged incidents should all be pushed. On first test, 47% of "AI-flagged but not submitted" cases were correctly held back by the LLM gatekeeper — legitimate businesses with coincidental brand names (Polish budgeting app "PlanB", delivery app "Keeta", hiking gear "Tether").
 
 **Why:** The LLM gatekeeper is intentionally conservative. Brand-name collisions are real and common. The skill should surface evidence for the user to decide, not recommend overriding the LLM.

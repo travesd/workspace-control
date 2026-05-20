@@ -1,18 +1,13 @@
 ---
-title: "feedback pr default base main"
-tags: [imported, claude-memory, feedback]
+title: "PRs target main in detection-platform-metal"
+description: "In phishfort/detection-platform-metal the default base for PRs is `main`. Pass `--base main` explicitly to avoid legacy defaults leaking in from gh config or past sessions."
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_pr_default_base_main.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: PRs target main in detection-platform-metal
-description: In phishfort/detection-platform-metal the default base for PRs is `main`. Pass `--base main` explicitly to avoid legacy defaults leaking in from gh config or past sessions.
-type: feedback
-originSessionId: b2856b89-42b0-485e-9a4d-e51f54b1ffe4
----
 When opening a PR in `phishfort/detection-platform-metal`, target `main`. Pass `--base main` explicitly to `gh pr create`.
 
 **Why:** The old detection-platform repo used `develop` as its working branch (develop → staging → main promote workflow). Metal has no staging/promote layer — `main` is the integration branch. Old muscle memory or leftover gh config from detection-platform can cause PRs to open against the wrong base.

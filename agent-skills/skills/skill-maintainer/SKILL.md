@@ -9,6 +9,15 @@ Use this skill when adding or updating shared Claude/Codex skills.
 
 ## Canonical Layout
 
+In this repo:
+
+```text
+agent-skills/skills/<skill-name>/SKILL.md
+agent-skills/skills/<skill-name>/agents/openai.yaml
+```
+
+Live workspace after approved activation:
+
 ```text
 /workspace/agent-skills/skills/<skill-name>/SKILL.md
 /workspace/agent-skills/skills/<skill-name>/agents/openai.yaml
@@ -23,7 +32,7 @@ Generated mirrors:
 
 ## Rules
 
-- Edit the canonical skill first, then run `skillctl validate` and `skillctl sync`.
+- Edit the workspace-control skill first. After explicit approval, sync it to `/workspace/agent-skills/skills/`, then run `skillctl validate` and `skillctl sync`.
 - Keep shared `SKILL.md` frontmatter portable: `name` and `description` only.
 - Use lowercase kebab-case names, and make the folder match the skill name.
 - Keep `SKILL.md` concise. Move long details into `references/` and load them only when needed.

@@ -1,6 +1,6 @@
 # Pi Workflow Mapping
 
-The Pi pilot maps workspace-control workflows into project-local Pi agents and workflow JSON.
+The Pi pilot maps workspace-control workflows into project-local Pi agents and workflow JSON. These files are draft specifications, not runnable activation state.
 
 ## Source Of Truth
 
@@ -10,7 +10,7 @@ The Pi pilot maps workspace-control workflows into project-local Pi agents and w
 - Pi workflows: `.pi/workflows/*.json`
 - Knowledge: `knowledge/`
 
-Pi should consume these files. It should not create a separate canonical memory layer.
+Pi should consume these files after activation. It should not create a separate canonical memory layer.
 
 ## Workflows
 
@@ -30,4 +30,4 @@ Do not install Pi packages by default. Current package candidates are:
 - `pi-subagents` for conversational and background delegation.
 - `ultimate-pi` as a lifecycle-pattern reference.
 
-Before installing any package, review its source and record an ADR.
+Before installing any package, review its source, record an ADR, and update `ACTIVATION.md`.

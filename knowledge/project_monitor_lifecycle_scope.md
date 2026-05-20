@@ -1,19 +1,11 @@
 ---
-title: "project monitor lifecycle scope"
-tags: [imported, claude-memory, project]
+title: "Monitor lifecycle scope"
+description: "Monitor judgement is reserved for brand-confusable hostnames currently showing no content; content-bearing non-impersonation pages do NOT belong in monitor"
+tags: [project, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/project_monitor_lifecycle_scope.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
----
-
----
-name: project-monitor-lifecycle-scope
-description: Monitor judgement is reserved for brand-confusable hostnames currently showing no content; content-bearing non-impersonation pages do NOT belong in monitor
-metadata: 
-  node_type: memory
-  type: project
-  originSessionId: 28c3594c-205d-4fc9-b9e5-54a5fdd9ae29
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
 ---
 
 Monitor judgement is reserved for **brand-confusable hostnames currently showing no content** (parked, Cloudflare interstitial, security challenge, sparse). Those domains might activate impersonation later, so the monitoring feeder re-queues them on the doubling-interval schedule.

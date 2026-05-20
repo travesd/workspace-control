@@ -1,18 +1,13 @@
 ---
-title: "feedback verify before asserting"
-tags: [imported, claude-memory, feedback]
+title: "Verify before asserting — no inference as fact"
+description: "Never claim how code works, what data shows, or how systems behave without verifying. Read the code, query the data, check the state — then assert. Sub-agent reports are inputs, not facts."
+tags: [feedback, memory-migration]
 status: active
 verified: 2026-05-20
-source: /home/user/.claude/projects/-workspace/memory/feedback_verify_before_asserting.md
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation"
+source: "sanitized workspace memory migration, 2026-05-20"
+re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
 ---
 
----
-name: Verify before asserting — no inference as fact
-description: Never claim how code works, what data shows, or how systems behave without verifying. Read the code, query the data, check the state — then assert. Sub-agent reports are inputs, not facts.
-type: feedback
-originSessionId: b822048f-5ea0-4685-be40-ed454892fc03
----
 Never assert facts about code, data, or system state without verifying first. If you haven't read the actual source, queried the actual data, or checked the actual state, say "I haven't verified this" and go check.
 
 **Why:** This has been called out repeatedly across distinct tasks — the recurring failure mode is: see data → construct plausible theory → state theory as fact → get caught. Past incidents:
