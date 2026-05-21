@@ -213,9 +213,12 @@ Before live activation, keep the thin-instructions gate:
 Do not expand `current-workspace/AGENTS.md` with long procedure playbooks before
 copying it live.
 
+## Follow-Up
+
+External provider research was completed after this audit and is recorded in
+`docs/reviews/2026-05-21-claude-codex-practices-review.md`.
+
 ## Not Needed Now
 
-- No external research is needed for this check. The local Karpathy follow-up
-  already captured the relevant pattern.
 - No Pi activation change is needed.
 - No task-directory movement is needed.
