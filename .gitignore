@@ -50,6 +50,9 @@ detection-platform-metal-work/busy/
 detection-platform-metal-work/done/
 detection-platform-metal-work/archived/
 detection-platform-metal-work/later/
+detection-platform-metal-work/parked/
+detection-platform-metal-work/planned/
+detection-platform-metal-work/investigations/
 
 # Pi runtime artifacts
 .pi/harness/runs/

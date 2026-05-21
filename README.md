@@ -11,6 +11,8 @@ The source of truth should remain provider-neutral. Claude memory, Codex memory,
 
 This repo is not activated into the live workspace automatically. See `ACTIVATION.md` for the current source-of-truth boundary and sync gates.
 
+For ongoing upkeep after activation, see `MAINTENANCE.md`.
+
 ## What Belongs Here
 
 - Workspace instructions and conventions.
@@ -58,3 +60,4 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `docs/reviews/2026-05-21-thin-instructions-audit.md` - audit of always-loaded instruction size, links, and split recommendations.
 - `docs/reviews/2026-05-21-workflow-improvements-final-review.md` - end-to-end review of final repo state against scoped improvements.
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
+- `MAINTENANCE.md` - ongoing repo upkeep, live sync, skill sync, knowledge sync, and Pi boundary rules.

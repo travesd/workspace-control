@@ -198,6 +198,8 @@ Detailed dataset/cache semantics:
   `/workspace/workspace-control/docs/reference/live-workspace-details.md`
 - Activation and rollback plan:
   `/workspace/workspace-control/docs/plans/2026-05-21-workflow-improvements-go-live.md`
+- Workspace-control maintenance:
+  `/workspace/workspace-control/MAINTENANCE.md`
 - Task lifecycle spec:
   `/workspace/workspace-control/docs/specs/task-lifecycle.md`
 - Thin-instructions audit:

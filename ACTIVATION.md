@@ -22,9 +22,12 @@
 ## Suggested Sync Sequence
 
 1. Run `tools/check-sensitive-content .`.
-2. Review `git diff --stat` and `git diff`.
-3. Commit in `workspace-control`.
-4. If activating skills, sync reviewed files into `/workspace/agent-skills/skills/`.
-5. Run `/workspace/tools/skills/skillctl validate`.
-6. Run `/workspace/tools/skills/skillctl sync`.
-7. Record the activation in `docs/decisions/`.
+2. Run `tools/knowledgectl lint` and `tools/knowledgectl index` when knowledge notes changed.
+3. Review `git diff --stat` and `git diff`.
+4. Commit in `workspace-control`.
+5. If activating skills, sync reviewed files into `/workspace/agent-skills/skills/`.
+6. Run `/workspace/tools/skills/skillctl validate`.
+7. Run `/workspace/tools/skills/skillctl sync`.
+8. Record the activation in `docs/decisions/`.
+
+See `MAINTENANCE.md` for the recurring upkeep workflow after activation.
