@@ -61,10 +61,10 @@ Activation should be read-mostly first. The first live slice should make the
 new guidance discoverable and validate that agents use it correctly before any
 large task-directory movement or dataset/cache behavior changes.
 
-Use this order:
+Use this order for the non-interrupting go-live:
 
 1. Snapshot live workspace-control-relevant state.
-2. Reconcile active tmux chats against task-local `resume.md` records.
+2. Capture a passive active-chat inventory without sending input to any pane.
 3. Apply the thin-instructions gate before copying any always-loaded file.
 4. Activate read-only helpers and knowledge lookup.
 5. Activate shared skills.
@@ -82,7 +82,7 @@ It should run as four separable tracks:
 
 | Track | Goal | Live mutation | Gate |
 |---|---|---:|---|
-| A. Recovery readiness | Make active chat/task state recoverable before changing instructions. | `resume.md` / `SESSIONS.md` only | No live agent pane lacking an owning task/session note. |
+| A. Recovery readiness | Make active chat/task state visible before changing instructions. | Passive inventory plus `SESSIONS.md` regeneration only | Active panes are inventoried without interruption; full per-task reconciliation may be deferred. |
 | B. Source activation | Promote reviewed skills, helper usage, and thin instructions. | Yes | Rollback snapshot exists; validation passes. |
 | C. Lifecycle adoption | Introduce `parked/` and classify stale work. | Directory creation first; moves only after approval | Movement table reviewed and approved. |
 | D. Provider hardening | Convert secret-handling guidance into enforced provider settings. | Provider config only | Tested in fresh Claude and Codex sessions. |
@@ -91,6 +91,44 @@ Track D follows official Claude Code and Codex guidance but is not required for
 the first instruction-layout activation. It should be planned immediately after
 Track B because instructions are advisory, while provider settings can enforce
 deny rules for env and credential files.
+
+## Non-Interrupting Active Chat Policy
+
+The first live switch may proceed without interrupting existing Claude/Codex
+chats if the user explicitly accepts that currently running chats keep their
+already-loaded context until they are resumed, restarted, or naturally end.
+
+Allowed during non-interrupting activation:
+
+- Read tmux metadata with `tmux list-windows` and `tmux list-panes`.
+- Regenerate `SESSIONS.md` with `/workspace/tools/agents/sessionctl index`.
+- Record high-level active-chat counts and known pane targets in the activation
+  task.
+- Copy reviewed live instruction files.
+- Sync shared skills.
+- Start separate fresh verification sessions, then close only those verification
+  sessions.
+
+Not allowed during non-interrupting activation:
+
+- No `tmux send-keys`, `/status`, `/memory`, `/skills`, `/quit`, or other input
+  to existing active panes.
+- No restarting, resuming, closing, or attaching to existing active chats.
+- No editing active task `resume.md` files unless the owning chat is idle and
+  the user explicitly asks for reconciliation.
+- No moving `busy/` task directories, removing worktrees, rebasing branches, or
+  changing product repo state.
+- No full pane transcript capture by default; record metadata only unless a
+  task explicitly needs transcript evidence.
+
+Effect on running chats:
+
+- Existing chats are not forced to reload `AGENTS.md`, `CLAUDE.md`, or skill
+  metadata.
+- New sessions and later resumed/restarted sessions should pick up the new live
+  instructions and synced skill mirrors.
+- Lifecycle directory moves remain blocked until the relevant panes are
+  reconciled or explicitly waived.
 
 ## Preflight
 
@@ -129,9 +167,10 @@ Record:
 - provider mirror inventory,
 - task counts from current and proposed status tools.
 
-## Active Chat Reconciliation Gate
+## Active Chat Inventory Gate
 
-Before changing live instructions or moving task directories:
+Before changing live instructions or moving task directories, capture passive
+metadata:
 
 ```bash
 tmux list-windows -t 0 -F '#{window_index}:#{window_name} panes=#{window_panes}'
@@ -140,7 +179,8 @@ tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} cmd=#{pane_
 sed -n '1,220p' /workspace/detection-platform-metal-work/SESSIONS.md
 ```
 
-For each Claude/Codex pane:
+For a full reconciliation pass, after the user is ready to resume or retire
+active chats, handle each Claude/Codex pane:
 
 1. Identify the owning task directory.
 2. Record the provider, tmux target, session ID when visible, transcript path
@@ -164,8 +204,9 @@ Current known issues from the 2026-05-21 audit:
   review/migration context.
 - Tmux pane `0:9` (`PRs`) is mid-turn in a Claude PR/merge-conflict thread.
 
-Do not start task lifecycle movement until this gate is clean or explicitly
-waived.
+Instruction/skill activation may proceed after passive inventory if the user
+accepts the non-interrupting mode. Do not start task lifecycle movement until
+the full reconciliation gate is clean or explicitly waived.
 
 ## Thin-Instructions Gate
 
@@ -525,6 +566,8 @@ Stop activation and use the relevant rollback if any of these happen:
   counts.
 - A proposed task move touches a dirty worktree, active session, or critical
   `ACTIVE.md` entry without explicit user approval.
+- A non-interrupting activation step would require sending input to, restarting,
+  closing, or editing state owned by an existing active chat.
 - Any activation step would touch product repo code, datasets, backups, or
   production/staging services outside the approved slice.
 
@@ -533,8 +576,8 @@ Stop activation and use the relevant rollback if any of these happen:
 For the lowest-risk rollout:
 
 1. Create the activation task and rollback snapshot.
-2. Reconcile current tmux panes into task-local `resume.md` records, including
-   the missing `brand-automation-corpus-llm-workers/resume.md`.
+2. Capture passive tmux/session inventory without sending input to active
+   panes.
 3. Review the thin `current-workspace/AGENTS.md` activation candidate.
 4. Activate read-only helper/knowledge lookup by documenting repo-path commands.
 5. Sync shared skills.
@@ -543,8 +586,10 @@ For the lowest-risk rollout:
    the intended instructions and skill mirrors.
 8. Create empty `parked/`.
 9. Run the task audit and produce the movement table.
-10. Pause for approval before moving any task directories.
-11. Plan provider-enforced secret-read denies as the next hardening slice.
+10. Pause for approval before moving any task directories or reconciling active
+    chat task files.
+11. When you resume or retire current chats, run the full reconciliation pass.
+12. Plan provider-enforced secret-read denies as the next hardening slice.
 
 This gives agents the improved workflow immediately while preserving a simple
 rollback: restore `AGENTS.md`, restore skills, remove wrappers if any, and
