@@ -19,7 +19,19 @@ This is a **strategic, repeatable** loop, not a one-off promote. Each cycle thro
 
 ## Prerequisites
 
-- Local detection-platform-metal stack running (via `gatewayctl stack up`). Must include `detection-core`, `detection-ui-{api,frontend}`, and **`classifier-worker` + `redis-classifier-data`** - without classifier-worker the manifest endpoint 502s and the Classifier Data UI degrades to fallback mode.
+- Local detection-platform-metal stack running through `/workspace/tools/gateway/gatewayctl`.
+  Multiple concurrent stacks are supported: use a unique stack name plus a unique
+  loopback IP such as `127.0.0.8`, then browse
+  `http://<stack>.localhost:18000/`. Check existing allocations with
+  `gatewayctl status` or `gatewayctl stack list`.
+- Classifier verification must include `detection-core`,
+  `detection-ui-{api,frontend}`, and **`classifier-worker` +
+  `redis-classifier-data`**. Without classifier-worker, the manifest endpoint
+  502s and the Classifier Data UI degrades to fallback mode.
+- Local LLM/classifier credentials, when needed, are expected in
+  `/workspace/classifiers.env`. Do not print the file. Check only variable names
+  or presence, and pass it to Docker/Compose as an env file rather than relying
+  on the agent process environment.
 - Read-only prod DB access via `/workspace/tools/db/dbctl` (`dbctl auth prod`, `dbctl start prod`).
 - The client seed payload (`POST /api/v1/clients/import`) already loaded into the local stack so client IDs and canonical domains align with prod.
 - Familiarity with: snapshot lifecycle, the classifier manifest contract shape, the `__system__` pseudo-client convention.
@@ -149,6 +161,47 @@ Important:
 
 ### 7. Verify
 
+#### Local stack setup for classifier checks
+
+Use gateway stacks for multi-instance work. Pick a stack name tied to the task
+and an unused loopback IP:
+
+```bash
+/workspace/tools/gateway/gatewayctl status
+/workspace/tools/gateway/gatewayctl stack list
+/workspace/tools/gateway/gatewayctl stack up <stack> <worktree-path> 127.0.0.N \
+  --tag <tag> \
+  --service detection-ui-frontend \
+  --service classifier-worker
+/workspace/tools/gateway/gatewayctl url <stack>
+```
+
+Use `--all` only when the task truly needs every Compose service. Use
+`--no-build` only after confirming the required local images already exist for
+the selected tag:
+
+```bash
+docker image inspect localhost:5000/classifier-base:<tag> >/dev/null
+docker image inspect localhost:5000/classifier-worker:<tag> >/dev/null
+```
+
+If the failure mentions a missing `localhost:5000/*:<tag>` image or a stopped
+local registry, record it as an image/registry blocker, not as evidence that
+multi-instance stacks are unsupported. Clean partial stacks with:
+
+```bash
+/workspace/tools/gateway/gatewayctl stack down <stack>
+```
+
+For LLM-backed classifier or brand workflows, pass local credentials explicitly
+without printing them:
+
+```bash
+awk -F= '/^(DSPY_MODEL|GOOGLE_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY)=/ { print $1 "=present" }' /workspace/classifiers.env
+# Then use a compose override with env_file: /workspace/classifiers.env, or
+# docker run --env-file /workspace/classifiers.env ...
+```
+
 Three checks:
 
 ```bash
@@ -217,4 +270,3 @@ Stop conditions for the loop:
 - Every promoted row has been LLM-validated.
 - classifier-worker `/api/classifier-data/status` reports all sources `ok`.
 - Diagnosis shows zero gaps and zero non-snapshot-backed rows that haven't been intentionally retained (e.g. cluster `non_content` filters under `__system__`).
-
