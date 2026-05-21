@@ -3,11 +3,21 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: browser-mcp [detection-ui|general] [-- extra @playwright/mcp args...]
+Usage:
+  browser-mcp [detection-ui|general] [-- extra @playwright/mcp args...]
+  browser-mcp doctor
+  browser-mcp cleanup [--dry-run]
 
 Workspace wrapper for Playwright MCP. It pins the MCP package version, keeps
 browser profiles isolated, and avoids writing Playwright artifacts to the
 workspace root.
+
+Commands:
+  doctor       Print active Playwright MCP processes and containers.
+  cleanup      Stop Playwright MCP containers and processes left behind by
+               closed agent transports. This cannot reconnect an already
+               closed MCP transport; restart/resume the agent client after
+               cleanup.
 
 Environment:
   PLAYWRIGHT_MCP_VERSION        Package version to run (default: 0.0.73)
@@ -38,10 +48,174 @@ fatal() {
   exit 2
 }
 
+default_image() {
+  printf '%s\n' "${PLAYWRIGHT_MCP_IMAGE:-mcr.microsoft.com/playwright:v1.58.2-noble}"
+}
+
+playwright_mcp_processes() {
+  ps -eo pid=,ppid=,stat=,etime=,cmd= | awk '
+    {
+      cmd = $0
+      hit = (cmd ~ /[n]px .*@playwright\/mcp/ || cmd ~ /[p]laywright-mcp/ || cmd ~ /\/workspace\/tools\/browser-mcp\/[b]rowser-mcp/)
+      skip = (cmd ~ /browser-mcp (doctor|cleanup)/)
+      if (hit && !skip) print
+    }
+  '
+}
+
+playwright_mcp_pids() {
+  ps -eo pid=,ppid=,cmd= | awk -v self="$$" -v parent="$PPID" '
+    {
+      cmd = $0
+      hit = (cmd ~ /[n]px .*@playwright\/mcp/ || cmd ~ /[p]laywright-mcp/ || cmd ~ /\/workspace\/tools\/browser-mcp\/[b]rowser-mcp/)
+      skip = (cmd ~ /browser-mcp (doctor|cleanup)/)
+      if ($1 != self && $1 != parent && hit && !skip) print $1
+    }
+  '
+}
+
+playwright_mcp_containers() {
+  local image
+  image="$(default_image)"
+  command -v docker >/dev/null 2>&1 || return 0
+  docker ps --no-trunc --filter "ancestor=$image" \
+    --format '{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Command}}' |
+    awk -F '\t' '$4 ~ /@playwright\/mcp|playwright-mcp/ { print }'
+}
+
+playwright_mcp_container_ids() {
+  local image
+  image="$(default_image)"
+  command -v docker >/dev/null 2>&1 || return 0
+  docker ps --no-trunc --filter "ancestor=$image" \
+    --format '{{.ID}}\t{{.Command}}' |
+    awk -F '\t' '$2 ~ /@playwright\/mcp|playwright-mcp/ { print $1 }'
+}
+
+run_doctor() {
+  if [ "$#" -ne 0 ]; then
+    fatal "doctor does not accept arguments"
+  fi
+
+  local image
+  image="$(default_image)"
+
+  printf 'browser-mcp doctor\n'
+  printf '  image: %s\n' "$image"
+  if command -v docker >/dev/null 2>&1; then
+    if docker image inspect "$image" >/dev/null 2>&1; then
+      printf '  docker image: present\n'
+    else
+      printf '  docker image: missing\n'
+    fi
+  else
+    printf '  docker: unavailable\n'
+  fi
+  printf '\n'
+
+  printf 'Playwright MCP containers:\n'
+  local containers
+  containers="$(playwright_mcp_containers || true)"
+  if [ -n "$containers" ]; then
+    printf '%s\n' "$containers"
+  else
+    printf '  none\n'
+  fi
+  printf '\n'
+
+  printf 'Playwright MCP processes:\n'
+  local processes
+  processes="$(playwright_mcp_processes || true)"
+  if [ -n "$processes" ]; then
+    printf '%s\n' "$processes"
+  else
+    printf '  none\n'
+  fi
+  printf '\n'
+  printf 'If an agent reports "Transport closed", run `browser-mcp cleanup`, then restart/resume the agent client.\n'
+}
+
+run_cleanup() {
+  local dry_run=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        dry_run=1
+        ;;
+      -h|--help)
+        cat <<'USAGE'
+Usage: browser-mcp cleanup [--dry-run]
+
+Stops Playwright MCP containers and host processes left behind by closed agent
+transports. This is workspace tooling only; it does not stop detection-ui,
+gateway, database, or application containers.
+USAGE
+        return 0
+        ;;
+      *)
+        fatal "unknown cleanup argument '$1'"
+        ;;
+    esac
+    shift
+  done
+
+  local container_ids
+  container_ids="$(playwright_mcp_container_ids || true)"
+  if [ -n "$container_ids" ]; then
+    if [ "$dry_run" = "1" ]; then
+      printf 'Would stop Playwright MCP containers:\n%s\n' "$container_ids"
+    else
+      printf 'Stopping Playwright MCP containers:\n%s\n' "$container_ids"
+      printf '%s\n' "$container_ids" | xargs -r docker stop
+    fi
+  else
+    printf 'No Playwright MCP containers found.\n'
+  fi
+
+  local pids
+  pids="$(playwright_mcp_pids || true)"
+  if [ -n "$pids" ]; then
+    if [ "$dry_run" = "1" ]; then
+      printf 'Would stop Playwright MCP processes:\n%s\n' "$pids"
+    else
+      printf 'Stopping Playwright MCP processes:\n%s\n' "$pids"
+      printf '%s\n' "$pids" | xargs -r kill || true
+      sleep 1
+
+      pids="$(playwright_mcp_pids || true)"
+      if [ -n "$pids" ]; then
+        printf 'Force stopping remaining Playwright MCP processes:\n%s\n' "$pids"
+        printf '%s\n' "$pids" | xargs -r kill -9 || true
+      fi
+    fi
+  else
+    printf 'No Playwright MCP processes found.\n'
+  fi
+
+  if [ "$dry_run" = "1" ]; then
+    printf 'Dry run complete. No processes or containers were stopped.\n'
+  else
+    printf 'Cleanup complete. Restart/resume the agent client to open a fresh MCP transport.\n'
+  fi
+}
+
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "help" ]; then
   usage
   exit 0
 fi
+
+case "${1:-}" in
+  doctor)
+    shift
+    run_doctor "$@"
+    exit 0
+    ;;
+  cleanup)
+    shift
+    run_cleanup "$@"
+    exit 0
+    ;;
+esac
 
 profile="${1:-detection-ui}"
 if [ "$#" -gt 0 ]; then

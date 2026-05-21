@@ -85,6 +85,38 @@ Exception: read-only detection database access through `dbctl` is allowed when
 the task explicitly asks for DB investigation/export work. Record the query,
 target environment, credential path, and output location.
 
+If a task appears to require staging or production validation, stop and ask.
+There is usually a local-stack alternative, or the work is outside this
+sandbox's validation scope.
+
+## Docker Execution And Env Files
+
+Agents run on the host; repo code runs in Docker containers.
+
+Use repo Docker tooling:
+
+- `docker compose`,
+- `docker stack`,
+- per-service Dockerfiles under `infrastructure/docker/`,
+- repo Make targets only when they invoke Docker themselves.
+
+For ad-hoc repo scripts, use a container with the workspace mounted, for
+example:
+
+```bash
+docker run --rm -v /workspace:/workspace -w "$PWD" <image> <cmd>
+```
+
+Workspace env files are inputs to local-stack containers and workspace tools,
+not general shell setup files. Treat these as env-file or mount targets unless a
+tool documents otherwise:
+
+- `/workspace/docker-swarm.env`,
+- `/workspace/pivoter.env`,
+- `/workspace/classifiers.env`.
+
+Do not print secret values from env files.
+
 ## Agent Session Tracking
 
 Task-local `resume.md` files are the canonical recovery records for active
@@ -108,6 +140,42 @@ Claude sessions can be launched with a preassigned `--session-id`. Codex
 sessions do not currently expose a documented preassigned-ID flag in this
 workspace, so use a unique tracking token and record the discovered transcript
 or session ID.
+
+## Browser MCP And Agent Browser Review
+
+Use the workspace wrapper for browser MCP sessions:
+
+```bash
+/workspace/tools/browser-mcp/browser-mcp detection-ui
+```
+
+Key points:
+
+- Tool docs: `/workspace/tools/browser-mcp/README.md`
+- Shared skill: `detection-ui-browser-review`
+- Config seed files: `/workspace/.mcp.json` and
+  `/workspace/workspace-control/current-workspace/config/`
+- Set `AGENT_BROWSER_OUTPUT_DIR` before launching the agent client when
+  screenshots or saved browser artifacts are required.
+- Keep browser artifacts under `busy/<task>/screenshots/` or
+  `investigations/<topic>/screenshots/`.
+- Browser MCP review is exploratory. Keep Docker-backed unit, frontend, and
+  Playwright e2e tests as regression validation for code changes.
+
+If an already-running agent reports `Transport closed`, the existing stdio MCP
+transport cannot be repaired from inside that chat. Check and clean stale
+Playwright MCP runtimes, then restart or resume the agent client from
+`/workspace`:
+
+```bash
+/workspace/tools/browser-mcp/browser-mcp doctor
+/workspace/tools/browser-mcp/browser-mcp cleanup --dry-run
+/workspace/tools/browser-mcp/browser-mcp cleanup
+```
+
+The cleanup command targets Playwright MCP containers/processes only. It does
+not stop the local gateway, detection-ui stacks, DB tunnels, or application
+containers.
 
 ## Shared Agent Skills
 
@@ -163,6 +231,22 @@ choose one of:
 
 Do not add workspace-specific adaptation hooks to the product repo skill
 itself.
+
+## LLM Provider Support
+
+LLM workflow changes must preserve multi-provider operation.
+
+- Treat `packages/py-llm-engine` as the canonical provider abstraction.
+- Use litellm-compatible model IDs: OpenAI as `openai/...` or `gpt-*`,
+  Anthropic as `anthropic/...` or `claude-*`, Gemini as `gemini/...` or
+  `google/...`.
+- Use the matching provider key names when examples require keys:
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or
+  `GOOGLE_API_KEY`.
+- Avoid provider-named override env vars unless the override is intentionally
+  provider-specific. Prefer neutral names such as `*_LLM_MODEL`.
+- Provider comparisons should record model ID, provider, temperature/max
+  tokens, fixture set, run time, and disagreement examples.
 
 ## Dataset Management And Traceability
 
@@ -220,11 +304,23 @@ Detection-platform backup layout convention:
 Treat backup directories as append-only after capture. Re-runs land in a new
 dated directory.
 
+Backup scripts start under the active task. Promote them to `/workspace/tools/`
+only when recurring or shared.
+
+Cross-check expectation: detection-core `detection_data` rows with
+`target_type=ssdeep_cluster` should match classifier-worker
+`/api/clustering/clusters?status=graduated` filtered to `promoted=true`. Record
+the result in `MANIFEST.json`.
+
+Restore is operator-driven. Clustering APIs do not currently have a bulk import
+path, so restore semantics for clustering need to be designed before relying on
+the backup for clustering recovery.
+
 ## Task Close-Off
 
 After PR merge or accepted completion:
 
-1. Verify merge state.
+1. Verify merge state, for example `gh pr view <N> --json state`.
 2. Write `SUMMARY.md` with what shipped, learnings, and skill suggestions.
 3. Capture reusable learnings or state "none".
 4. Move reusable data products to `/workspace/datasets/` and leave pointers.
@@ -234,6 +330,7 @@ After PR merge or accepted completion:
 
 Before moving anything out of `busy/`, read
 `/workspace/detection-platform-metal-work/ACTIVE.md`.
+At session start, also scan `busy/` for stale tasks whose PRs already merged.
 
 Keep these critical in-flight threads unless explicitly told otherwise:
 

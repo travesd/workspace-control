@@ -30,6 +30,28 @@ mode so accessibility snapshots and normal browser interaction still work. Set
 `AGENT_BROWSER_OUTPUT_DIR` before launching Claude or Codex when screenshots or
 saved browser artifacts are part of the task.
 
+## Recovery
+
+If a browser MCP tool call fails with `Transport closed`, the stdio connection
+inside the already-running agent client cannot be reconnected from inside that
+chat. Clean up stale Playwright MCP runtimes, then restart or resume the agent
+client from `/workspace` so it opens a fresh MCP transport:
+
+```bash
+/workspace/tools/browser-mcp/browser-mcp doctor
+/workspace/tools/browser-mcp/browser-mcp cleanup
+```
+
+Use a dry run first when other agents may be actively using browser MCP:
+
+```bash
+/workspace/tools/browser-mcp/browser-mcp cleanup --dry-run
+```
+
+The cleanup command only targets Playwright MCP containers/processes. It does
+not stop the local gateway, detection-ui stacks, DB tunnels, or application
+containers.
+
 ## Claude Project MCP
 
 Project-scoped Claude configuration can use:

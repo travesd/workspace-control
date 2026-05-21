@@ -1,10 +1,11 @@
 # Task Lifecycle Spec
 
-Status: proposed, not active live behavior
+Status: active live reference for task-state definitions; physical task movement
+remains intentional and user-approved
 
 Date: 2026-05-21
 
-This spec defines the forward-looking task states for `detection-platform-metal-work`. It is staged in `workspace-control` only until explicitly activated.
+This spec defines the task states for `detection-platform-metal-work`.
 
 ## Principle
 

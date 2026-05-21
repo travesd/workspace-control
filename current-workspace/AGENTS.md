@@ -24,6 +24,8 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
   `npm`, `pytest`, `go test`, or similar directly on the host.
 - Validate product work against the local stack only. Do not use staging or
   production APIs for validation.
+- Do not use `kubectl`, `gcloud`, GAR, BigQuery, or ArgoCD for validation. If
+  staging or production seems required, stop and ask.
 - Production DB access is read-only and only through `/workspace/tools/db/dbctl`
   when explicitly needed for DB investigation/export work.
 - Use git worktrees for branch work. Never branch in
@@ -31,7 +33,8 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
 - Make minimal, scoped changes. Do not refactor, upgrade, or rewrite adjacent
   code unless the task requires it.
 - Do not push, create PRs, merge, remove worktrees, or run destructive cleanup
-  without explicit approval where workspace rules require it.
+  without explicit approval where workspace rules require it. One approval does
+  not authorize later pushes or PR actions.
 - Keep task artifacts with the task. Put reusable data products in
   `/workspace/datasets/`, not inside `busy/<task>/`.
 - Never delete useful task context. Move it to the right lifecycle state.
@@ -49,6 +52,8 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
 | `/workspace/backups/` | Point-in-time platform state backups for restore planning. |
 | `/workspace/agent-skills/` | Canonical shared Claude/Codex skills. |
 | `/workspace/workspace-control/` | Reviewable source for workspace operating-model changes. |
+| `/workspace/testing-data/` | Curated classifier/LLM eval datasets and ground truths. |
+| `/workspace/data/` | Compatibility/scratch path; reusable outputs belong in `/workspace/datasets/`. |
 | `/workspace/archive/` | Legacy migration provenance only. |
 
 Worktree directory names mirror branch names with slashes replaced by dashes.
@@ -64,6 +69,7 @@ Example: `feat/foo` -> `feat-foo`.
 | Detection DB investigation | `/workspace/tools/db/dbctl` | `db-readonly-investigation` skill |
 | Reusable incident export | `/workspace/tools/datasets/datasetctl` | `detection-dataset-export` skill |
 | Cloudflare Access observability | `/workspace/tools/access/accessctl` | `cloudflare-access-observability` skill |
+| Detection UI browser review | `/workspace/tools/browser-mcp/browser-mcp` | `detection-ui-browser-review` skill |
 | Agent session records | `/workspace/tools/agents/sessionctl` | `/workspace/tools/agents/README.md` |
 | Shared skill validation/sync | `/workspace/tools/skills/skillctl` | `skill-maintainer` skill |
 
@@ -118,11 +124,27 @@ Run service tests/builds through containers or repo Make targets that themselves
 use Docker. If a target assumes host-installed dependencies, translate it to a
 container invocation or stop and ask.
 
+Use repo Docker tooling (`docker compose`, `docker stack`, and Dockerfiles under
+`infrastructure/docker/`). For ad-hoc repo scripts, run inside a container with
+the workspace mounted rather than creating host virtualenvs or installing host
+dependencies.
+
+Treat workspace env files such as `/workspace/docker-swarm.env`,
+`/workspace/pivoter.env`, and `/workspace/classifiers.env` as container
+env-file or mount inputs. Do not print them or source them directly into the
+agent shell unless a tool specifically documents that pattern.
+
+For features touching five or more files, checkpoint after each logical unit
+with the relevant container-based validation.
+
 Before opening a PR or asking for merge, ensure the PR title uses:
 
 ```text
 <type>(<scope>): <description>
 ```
+
+Prefer an explicit `gh pr create --title ...`; do not rely on `--fill` unless
+the source commit headline already matches the required format.
 
 ## Data And Artifacts
 
@@ -162,6 +184,11 @@ Detailed dataset/cache semantics:
 - For LLM workflow quality changes, preserve multi-provider operation and
   record model ID, provider, temperature/max tokens, fixture set, run time, and
   disagreement examples.
+- Write plans and notes so either Claude or Codex can resume: prefer explicit
+  paths, commands, branch names, PR/issue links, and validation evidence over
+  chat-only context.
+- If a workflow depends on a provider-specific capability, name the dependency
+  and the closest fallback.
 - Before pausing, handing off, or closing a task, update `resume.md` and run
   `sessionctl index`.
 

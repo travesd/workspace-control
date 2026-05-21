@@ -18,6 +18,10 @@ Use this skill when reviewing, debugging, or visually validating the
 - Use `/workspace/tools/browser-mcp/browser-mcp detection-ui` for browser MCP
   access. The wrapper defaults to the Playwright Docker runtime when the image is
   available locally.
+- If browser MCP reports `Transport closed`, use
+  `/workspace/tools/browser-mcp/browser-mcp doctor` and
+  `/workspace/tools/browser-mcp/browser-mcp cleanup` to clear stale Playwright
+  MCP runtimes, then restart or resume the agent client from `/workspace`.
 - Save screenshots and browser artifacts under the active task's
   `screenshots/` directory. For standalone investigations, use
   `/workspace/detection-platform-metal-work/investigations/<topic>/screenshots/`.
@@ -66,6 +70,8 @@ Use this skill when reviewing, debugging, or visually validating the
 /workspace/tools/gateway/gatewayctl status
 /workspace/tools/gateway/gatewayctl stack list
 /workspace/tools/gateway/gatewayctl doctor
+/workspace/tools/browser-mcp/browser-mcp doctor
+/workspace/tools/browser-mcp/browser-mcp cleanup --dry-run
 /workspace/tools/browser-mcp/browser-mcp --help
 docker image inspect mcr.microsoft.com/playwright:v1.58.2-noble >/dev/null
 ```
