@@ -52,5 +52,9 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 ## Current Plans
 
 - `docs/plans/2026-05-20-core-recommendations-implementation.md` - staged implementation plan for knowledge lookup, shared workflow skills, incident cache semantics, and Pi workflow translation.
+- `docs/plans/2026-05-21-workflow-improvements-go-live.md` - proposed live rollout and rollback plan for workflow improvements.
 - `docs/plans/2026-05-21-task-lifecycle-update.md` - staged plan for task lifecycle states, parked-work handling, and future activation.
+- `docs/reference/live-workspace-details.md` - on-demand details moved out of always-loaded workspace instructions.
+- `docs/reviews/2026-05-21-thin-instructions-audit.md` - audit of always-loaded instruction size, links, and split recommendations.
+- `docs/reviews/2026-05-21-workflow-improvements-final-review.md` - end-to-end review of final repo state against scoped improvements.
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
