@@ -14,6 +14,7 @@ beyond one task:
 - durable knowledge notes are added or corrected,
 - helper scripts under `tools/` change,
 - task lifecycle definitions or templates change,
+- task resumability scoring or note templates change,
 - activation, rollback, or provider-practice docs change.
 
 Do not update this repo for ordinary task notes, screenshots, datasets,
@@ -85,6 +86,22 @@ Use durable knowledge for reusable facts and gotchas, not raw research dumps.
 
 Set `re_verify_when` on notes whose facts can become stale, and prefer links to
 task summaries, manifests, or source docs over pasted raw transcript content.
+
+## Resumability Review
+
+During workspace hygiene reviews, sample recent `busy/`, `parked/`, and `done/`
+tasks against `docs/specs/task-resumability.md`.
+
+Track:
+
+- tasks with complete resume packets,
+- parked tasks with concrete restart or extraction conditions,
+- tasks where chat dependency remains `required`,
+- stale `busy/` tasks,
+- durable learnings extracted to skills, knowledge notes, ADRs, or manifests.
+
+Use the results to simplify templates if agents skip them, or tighten fields if
+fresh agents still need chat history to resume.
 
 ## Pi Boundary
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Call A Friend"
+  short_description: "Get a fresh cross-agent review"
+  default_prompt: "Use $call-a-friend to ask a fresh Claude or Codex session for a bounded review."
+policy:
+  allow_implicit_invocation: false

@@ -14,6 +14,8 @@ between `busy/`, `parked/`, `later/`, and `archived/`.
 - Branch/worktree status: Branch, PR, worktree, and cleanliness state.
 - Artifact policy: What must be preserved, moved to `/workspace/datasets/`, or summarized.
 - Review after: Optional date, event, or decision trigger.
+- Chat dependency: optional | useful-for-history | required
+- Resumability score: __/10
 ```
 
 State-specific notes:
@@ -23,3 +25,5 @@ State-specific notes:
   there is no active branch or artifact state.
 - For `archived/`, prefer `SUMMARY.md`; include the replacement path or reason
   no restart is expected.
+- For non-trivial tasks, pair this lifecycle block with the resume packet in
+  `docs/templates/resume-packet.md`.

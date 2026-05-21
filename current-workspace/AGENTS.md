@@ -111,6 +111,9 @@ action. Regenerate the session index after session record changes:
 Detailed lifecycle definitions:
 `/workspace/workspace-control/docs/specs/task-lifecycle.md`
 
+Task-first resumability standard:
+`/workspace/workspace-control/docs/specs/task-resumability.md`
+
 ## Worktrees And Product Validation
 
 Create branch work from the read-only reference checkout:
@@ -202,6 +205,8 @@ Detailed dataset/cache semantics:
   `/workspace/workspace-control/MAINTENANCE.md`
 - Task lifecycle spec:
   `/workspace/workspace-control/docs/specs/task-lifecycle.md`
+- Task resumability spec:
+  `/workspace/workspace-control/docs/specs/task-resumability.md`
 - Thin-instructions audit:
   `/workspace/workspace-control/docs/reviews/2026-05-21-thin-instructions-audit.md`
 - Repo architecture and service-level rules:

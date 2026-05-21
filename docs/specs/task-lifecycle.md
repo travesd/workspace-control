@@ -7,6 +7,10 @@ Date: 2026-05-21
 
 This spec defines the task states for `detection-platform-metal-work`.
 
+Task state and task resumability are related but separate. This spec defines
+where task context belongs. The resume packet, notes ledger, and quality score
+are defined in `docs/specs/task-resumability.md`.
+
 ## Principle
 
 Task state should describe the next operational relationship to the work, not just where files happen to live.
@@ -89,6 +93,7 @@ Criteria:
 Required:
 
 - `resume.md` for non-trivial work,
+- resume packet for multi-step or handoff-prone work,
 - lifecycle state line or block when the task is not obviously active,
 - current branch/worktree/PR/session context when applicable,
 - next action.
@@ -133,6 +138,8 @@ extract_before_archive: "What should be harvested before final archive"
 branch_worktree_status: "Branch/worktree/PR state"
 artifact_policy: "What must be preserved"
 review_after: "Optional date or trigger"
+chat_dependency: "optional | useful-for-history | required"
+resumability_score: "0-10"
 ```
 
 Markdown equivalent:
@@ -148,6 +155,8 @@ Markdown equivalent:
 - Branch/worktree status: local branch preserved, remote PR closed.
 - Artifact policy: preserve deferred patch and review notes.
 - Review after: next classifier prompt redesign.
+- Chat dependency: useful-for-history.
+- Resumability score: 8/10.
 ```
 
 Substates:
@@ -215,6 +224,7 @@ Required:
 - `SUMMARY.md`,
 - preserved `plan.md` and `notes.md` when they exist,
 - links to merged PRs, commits, datasets, or decisions when applicable,
+- resumability or extraction decision for any task that may be mined later,
 - day index update after live activation of this lifecycle.
 
 ### `archived/`

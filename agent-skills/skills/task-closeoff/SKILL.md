@@ -29,8 +29,9 @@ Use this skill when a task is done, a PR merged, a review concluded, or the user
 - Warn for task dirs over 100 MB.
 - Require an explicit harvest/keep decision for task dirs over 1 GB.
 - Keep critical in-flight tasks unless the user explicitly says otherwise.
+- Score resumability with `/workspace/workspace-control/docs/specs/task-resumability.md` before parking, archiving, or closing tasks that may be mined later.
 - Parked tasks need a `resume.md` lifecycle block, in clear Markdown labels or YAML frontmatter, with state, substate, parked reason, restart condition, branch/worktree/PR context, artifact policy, and extraction requirements.
-- Use `docs/templates/task-lifecycle-block.md` when available.
+- Use `/workspace/workspace-control/docs/templates/task-lifecycle-block.md` when available.
 
 ## Guardrails
 

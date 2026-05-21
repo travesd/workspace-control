@@ -11,6 +11,8 @@ This repo is for workspace operating-model documentation and harness configurati
 - When changing shared skills, edit `agent-skills/skills/` here first, then sync to the live workspace mirrors through the workspace skill tooling after explicit approval.
 - Pi configuration under `.pi/` is draft-only unless `pi-pilot/ACTIVATION.md` says otherwise. It must preserve the same guardrails as `/workspace/AGENTS.md`: Docker-only repo execution, no auto-push, local-stack validation, and read-only production access only when explicitly authorized.
 - Use ADRs in `docs/decisions/` for durable process decisions.
+- Use `docs/specs/task-resumability.md` for task note, handoff, and recovery
+  standards; keep only pointers in always-loaded workspace instructions.
 - Keep `knowledge/` notes short, sourced, tagged, and dated. Include when to re-verify facts that can drift.
 
 ## Validation

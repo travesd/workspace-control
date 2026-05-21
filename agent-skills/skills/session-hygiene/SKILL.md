@@ -14,7 +14,9 @@ Use this skill when starting, pausing, handing off, or recovering an agent task,
 3. Inspect the relevant task `resume.md`.
 4. Ensure any session that owns or materially advances a `busy/<task>/` directory has a standard session row.
 5. Record provider, role, session ID, resume command, tmux/window, status, transcript path, and notes.
-6. Update the task's `Next Step` before pausing or handing off.
+6. For non-trivial tasks, update the resume packet fields from `/workspace/workspace-control/docs/specs/task-resumability.md`: current state, exact next action, validation state, constraints, artifacts, and chat dependency.
+7. If recovery required transcript inspection, extract the needed state into `resume.md` or `notes.md` so chat becomes optional where practical.
+8. Update the task's `Next Step` before pausing or handing off.
 
 ## Provider Notes
 
@@ -26,3 +28,4 @@ Use this skill when starting, pausing, handing off, or recovering an agent task,
 - Do not edit `SESSIONS.md` directly; regenerate it.
 - Do not close, archive, or remove active task dirs or worktrees unless explicitly asked.
 - Do not inspect provider transcripts for content unless recovery requires it.
+- Do not leave `Chat dependency: required` without naming the missing state and transcript/session needed.

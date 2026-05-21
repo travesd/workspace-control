@@ -22,6 +22,7 @@ For ongoing upkeep after activation, see `MAINTENANCE.md`.
 - Process decisions and ADRs.
 - Implementation plans for staged workspace-control changes.
 - Task lifecycle state definitions and transition rules.
+- Task resumability standards and note templates.
 - Templates for task setup, session hygiene, close-off, and cross-agent review.
 - Pi pilot agents, workflow drafts, and translation notes.
 
@@ -60,4 +61,5 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `docs/reviews/2026-05-21-thin-instructions-audit.md` - audit of always-loaded instruction size, links, and split recommendations.
 - `docs/reviews/2026-05-21-workflow-improvements-final-review.md` - end-to-end review of final repo state against scoped improvements.
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
+- `docs/specs/task-resumability.md` - task-first notes, resume packets, chat-dependency classification, and measurable resumability scoring.
 - `MAINTENANCE.md` - ongoing repo upkeep, live sync, skill sync, knowledge sync, and Pi boundary rules.

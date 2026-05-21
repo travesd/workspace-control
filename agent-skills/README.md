@@ -4,7 +4,7 @@ This directory is the workspace-control copy of shared skills. While this repo i
 
 These skills are intended to be portable between Claude and Codex. Pi can also consume Agent Skills from project paths, but the Pi pilot should not silently diverge from these canonical skills.
 
-## Added By Workspace Organization Review
+## Shared Workflow Skills
 
 - `durable-learning-capture`
 - `session-hygiene`
@@ -13,6 +13,7 @@ These skills are intended to be portable between Claude and Codex. Pi can also c
 - `workspace-artifact-inventory`
 - `agents-md-review`
 - `research-to-knowledge`
+- `call-a-friend`
 
 Before changing skills:
 
