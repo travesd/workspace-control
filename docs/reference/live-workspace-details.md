@@ -26,8 +26,26 @@ Key points:
   `127.0.0.1` for the gateway.
 - Start targets default to `detection-ui-frontend` and dependencies. Add
   `--all` only when every Compose service is required.
+- Use a unique stack name and loopback IP per worktree. Check current
+  allocations with `gatewayctl status` or `gatewayctl stack list`.
+- Use `--no-build` only after confirming the required tagged local images
+  exist. If a stack fails on a missing `localhost:5000/*:<tag>` image or no
+  local registry is listening, treat that as an image/registry blocker.
 - Prefer direct loopback URLs or VS Code Remote port forwarding over
   code-server path proxy URLs when host-based routing matters.
+
+## Local Classifier And LLM Environment
+
+Local classifier, brand-corpus, and LLM validation may need AI provider
+credentials. In this workspace the local env file is:
+
+```text
+/workspace/classifiers.env
+```
+
+Do not print values from this file. Check only variable names or presence, and
+pass it to Docker or Compose as an env file. Do not conclude credentials are
+missing just because the current agent process environment lacks provider keys.
 
 ## Detection DB Access
 

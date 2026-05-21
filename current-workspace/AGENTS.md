@@ -60,6 +60,7 @@ Example: `feat/foo` -> `feat-foo`.
 |---|---|---|
 | Workspace orientation | `/workspace/workspace-control/tools/workspace-status --brief` | `workspace-status` skill |
 | Multi-worktree local stack | `/workspace/tools/gateway/gatewayctl` | `/workspace/tools/gateway/README.md` |
+| Local classifier/LLM env | `/workspace/classifiers.env` | Pass as an env file; do not print values |
 | Detection DB investigation | `/workspace/tools/db/dbctl` | `db-readonly-investigation` skill |
 | Reusable incident export | `/workspace/tools/datasets/datasetctl` | `detection-dataset-export` skill |
 | Cloudflare Access observability | `/workspace/tools/access/accessctl` | `cloudflare-access-observability` skill |
@@ -68,6 +69,9 @@ Example: `feat/foo` -> `feat-foo`.
 
 If a repo-local skill or README teaches host `cloudflared`, host `psql`, or
 provider-local CLI patterns, prefer the workspace skill/tooling in this table.
+`gatewayctl` supports concurrent local stacks through unique stack names and
+loopback IPs; missing local images or a stopped local registry are image
+blockers, not evidence that multi-instance stacks are unsupported.
 
 ## Task Lifecycle
 
