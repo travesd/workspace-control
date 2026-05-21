@@ -14,13 +14,27 @@ count_dirs() {
   fi
 }
 
+count_state() {
+  local name="$1"
+  local path="$WORK_ROOT/$name"
+  if [ ! -d "$path" ]; then
+    echo 0
+    return
+  fi
+  if [ "$name" = "planned" ]; then
+    find "$path" -mindepth 1 -maxdepth 1 \( -type d -o -name '*.md' \) ! -name README.md | wc -l
+  else
+    count_dirs "$path"
+  fi
+}
+
 echo "# Workspace Artifact Inventory"
 date -u +"Generated: %Y-%m-%d %H:%M:%SZ"
 echo
 
 echo "## Task Directories"
-for name in busy planned later done archived investigations; do
-  printf -- "- %s: %s\\n" "$name" "$(count_dirs "$WORK_ROOT/$name")"
+for name in busy parked planned later done archived investigations; do
+  printf -- "- %s: %s\\n" "$name" "$(count_state "$name")"
 done
 echo
 

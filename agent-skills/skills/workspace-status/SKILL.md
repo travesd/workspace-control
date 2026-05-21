@@ -13,6 +13,7 @@ Use this skill at the start of a non-trivial session, when resuming work, or whe
 2. Include only high-signal state:
    - active critical tasks,
    - session summary,
+   - task counts by lifecycle state when available,
    - current cwd mapping to task/worktree,
    - open PR/branch context when relevant,
    - missing resume/session warnings,

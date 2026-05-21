@@ -6,7 +6,7 @@ This is the canonical workspace-level instruction file for Claude and Codex/Open
 
 This workspace is for **detection-platform-metal** only (Docker Swarm + Redis Streams, default branch `main`).
 
-The old **detection-platform** (GKE) has been archived to `/workspace/archive/` for PR migration reference — there are open PRs there that will be ported into metal over time. Do not start new work in the archive. Reference it only when porting a specific PR.
+The old **detection-platform** (GKE) has been archived to `/workspace/archive/` for PR migration reference — there are open PRs there that will be ported into metal over time. Current metal work and future task lifecycle state belong under `/workspace/detection-platform-metal-work/`; use `/workspace/archive/` as migration provenance when porting a specific PR.
 
 ## Execution Model
 
@@ -23,13 +23,13 @@ The old **detection-platform** (GKE) has been archived to `/workspace/archive/` 
 |------|------|
 | `/workspace/detection-platform-metal` | Read-only reference, always on `main`. Never branch work here. |
 | `/workspace/detection-platform-metal.worktrees/<branch>/` | Active branch work (one worktree per branch). |
-| `/workspace/detection-platform-metal-work/` | Work artifacts: `ACTIVE.md`, `planned/`, `busy/`, `later/`, `done/`, `archived/`, `investigations/`. |
+| `/workspace/detection-platform-metal-work/` | Work artifacts: `ACTIVE.md`, `planned/`, `busy/`, `parked/`, `later/`, `done/`, `archived/`, `investigations/`. |
 | `/workspace/datasets/` | Clean central local dataset store for new durable exports. Use `datasets/adhoc/` for temporary data-shaped outputs. See `datasets/INDEX.md` and `datasets/MANAGEMENT.md`. |
 | `/workspace/backups/` | Point-in-time platform state snapshots (configuration + curated detection data + classifier-worker state) intended for restore. Append-only after capture. Distinct from `datasets/` (data products for reuse in tasks/evals) and `archive/` (truly historical, pre-central-store). See `backups/README.md` and §"Platform State Backups". |
 | `/workspace/agent-skills/` | Canonical shared Agent Skills for Claude and Codex. Sync generated mirrors with `/workspace/tools/skills/skillctl`. |
 | `/workspace/data/` | Empty compatibility/scratch path. Dataset/export outputs should go to `/workspace/datasets/adhoc/` or a named dataset. |
 | `/workspace/testing-data/` | Curated eval datasets (classifier/LLM ground truth). |
-| `/workspace/archive/` | Historical repos, completed task archives, and old pre-central-store data. Use only when intentionally requested or needed for provenance. |
+| `/workspace/archive/` | Legacy migration provenance: historical repos, GKE-era work artifacts, pre-central-store data, and backward-compatibility symlink targets. Consult for migration/provenance tasks. |
 
 Worktree directory names mirror the branch (slashes → dashes): `feat/foo` → `feat-foo`.
 
@@ -201,6 +201,11 @@ For non-trivial work, build critique into the task:
   ```
 
 ### Work Artifacts Layout
+
+The lifecycle root for current metal task state is `/workspace/detection-platform-metal-work/`.
+Each task has one primary lifecycle state. Substates belong in `resume.md` or
+`SUMMARY.md`; they are metadata, not extra top-level directories.
+
 ```
 detection-platform-metal-work/
   ACTIVE.md                  ← current critical/in-flight task inventory
@@ -208,8 +213,9 @@ detection-platform-metal-work/
   .sessions/index.json       ← generated machine-readable session lookup
   planned/                   ← specs not yet started (<date>.<task>.md)
   busy/<task-name>/          ← active: plan.md, notes.md, resume.md, screenshots/
-  later/<task-name>/         ← deferred but likely useful; not active, not superseded
-  archived/                  ← paused, superseded, or closed-unmerged work; never delete useful context
+  parked/<task-name>/        ← valuable paused work with restart/extract/decision conditions
+  later/<task-name>/         ← lightweight backlog or reminder; no preserved active state
+  archived/                  ← reference-only closed/superseded task context
   done/
     INDEX.md                 ← master table of all completed tasks
     YYYYMMDD-dow/            ← day directory
@@ -222,12 +228,12 @@ detection-platform-metal-work/
 ```
 
 ### Data Products vs Task Artifacts
-**Task artifacts** (plan.md, notes.md, screenshots, logs) stay with the task → `busy/` → `later/` or `done/`.
+**Task artifacts** (plan.md, notes.md, screenshots, logs) stay with the task as it moves through `busy/`, `parked/`, `later/`, `done/`, or `archived/`.
 **Data products** (datasets, exports, submissions, eval results, corpus snapshots) go to `/workspace/datasets/`.
 
 Rule: if data will be referenced by future tasks, has value beyond this task's lifecycle, or is built incrementally across tasks, it belongs in `datasets/`, not nested in `busy/<task>/`.
 
-Historical exports from before the central-store reset live in `/workspace/archive/datasets/`. Do not load or reference that archive by default; consult it only when a task explicitly needs old data or provenance.
+Historical exports from before the central-store reset live in `/workspace/archive/datasets/`. Consult that archive when a task explicitly needs old data or provenance; use `/workspace/datasets/` for current data products.
 
 ### Dataset Management and Traceability
 Avoid duplicate storage without losing query provenance:
@@ -276,17 +282,23 @@ Avoid duplicate storage without losing query provenance:
 
 At session start, read `ACTIVE.md`, then `SESSIONS.md`, then each relevant task's `resume.md`, and scan `busy/` for stale tasks whose PRs already merged.
 
-### Task Archiving
+### Task State Transitions
 Before moving anything out of `busy/`, read `/workspace/detection-platform-metal-work/ACTIVE.md`.
 
 - Keep these critical in-flight tasks unless the user explicitly says otherwise: LLM rethink/domain LLM v2, LLM detection UI, and clustering proposal.
 - Move merged/completed tasks to `done/YYYYMMDD-dow/N.<task>/` with `SUMMARY.md` or a clear pointer to the preserved plan/notes.
-- Move deferred-but-promising tasks to `later/<task>/` when they are not active
-  now, not merged, and not superseded. Update the task `resume.md` first with
-  the reason for deferral, preserved branch/worktree/PR context, artifact paths,
-  and the condition that should bring the task back into `busy/`. Regenerate
-  `SESSIONS.md` afterward with `/workspace/tools/agents/sessionctl index`.
-- Move paused, superseded, or closed-unmerged tasks to `archived/YYYYMMDD-<reason>/<task>/`; never `rm -rf` task context.
+- Move valuable paused work to `parked/<task>/` when it has a concrete restart,
+  extraction, or decision condition. Update `resume.md` first with state,
+  substate, parked reason, restart condition, branch/worktree/PR context,
+  artifact policy, and extraction requirements.
+- Move lightweight future ideas to `later/<task>/` only when there is no
+  important local-only branch, prototype, or artifact state to preserve.
+- Move reference-only closed/superseded task context to
+  `archived/YYYYMMDD-<reason>/<task>/` after useful material has been
+  summarized or extracted. Future metal task lifecycle archives use
+  `/workspace/detection-platform-metal-work/archived/`; top-level
+  `/workspace/archive/` remains historical migration provenance.
+- Never `rm -rf` useful task context; move it.
 - Remove a worktree only after `git status --short` is clean and the branch/PR state is verified. Branches can remain even when the local worktree is removed.
 
 ## PR Migration: detection-platform → detection-platform-metal

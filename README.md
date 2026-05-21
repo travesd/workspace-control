@@ -19,6 +19,7 @@ This repo is not activated into the live workspace automatically. See `ACTIVATIO
 - Workspace-control helper scripts in `tools/`.
 - Process decisions and ADRs.
 - Implementation plans for staged workspace-control changes.
+- Task lifecycle state definitions and transition rules.
 - Templates for task setup, session hygiene, close-off, and cross-agent review.
 - Pi pilot agents, workflow drafts, and translation notes.
 
@@ -51,3 +52,5 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 ## Current Plans
 
 - `docs/plans/2026-05-20-core-recommendations-implementation.md` - staged implementation plan for knowledge lookup, shared workflow skills, incident cache semantics, and Pi workflow translation.
+- `docs/plans/2026-05-21-task-lifecycle-update.md` - staged plan for task lifecycle states, parked-work handling, and future activation.
+- `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.

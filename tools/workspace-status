@@ -6,6 +6,20 @@ CONTROL_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_ROOT="$ROOT/detection-platform-metal-work"
 MODE="${1:---brief}"
 
+count_state() {
+  local name="$1"
+  local path="$WORK_ROOT/$name"
+  if [ ! -d "$path" ]; then
+    echo 0
+    return
+  fi
+  if [ "$name" = "planned" ]; then
+    find "$path" -mindepth 1 -maxdepth 1 \( -type d -o -name '*.md' \) ! -name README.md | wc -l
+  else
+    find "$path" -mindepth 1 -maxdepth 1 -type d | wc -l
+  fi
+}
+
 case "$MODE" in
   --brief|"")
     active_lines=50
@@ -60,6 +74,12 @@ if [ -d "$CONTROL_ROOT/knowledge" ] && [ -x "$CONTROL_ROOT/tools/knowledgectl" ]
 else
   echo "- knowledge tooling unavailable"
 fi
+echo
+
+echo "## Task State Counts"
+for name in busy parked planned later done archived investigations; do
+  printf -- "- %s: %s\n" "$name" "$(count_state "$name")"
+done
 echo
 
 echo "## Current Directory"
