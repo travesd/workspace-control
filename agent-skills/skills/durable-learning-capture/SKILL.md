@@ -1,6 +1,6 @@
 ---
 name: durable-learning-capture
-description: Route reusable workspace learnings into the correct durable home: knowledge notes, AGENTS.md, shared skills, dataset manifests, or task summaries.
+description: "Route reusable workspace learnings into the correct durable home: knowledge notes, AGENTS.md, shared skills, dataset manifests, or task summaries."
 ---
 
 # Durable Learning Capture
