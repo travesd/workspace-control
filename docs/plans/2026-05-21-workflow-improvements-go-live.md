@@ -24,6 +24,22 @@ Thin-instructions audit:
 
 - `docs/reviews/2026-05-21-thin-instructions-audit.md`
 
+Provider practices audit:
+
+- `docs/reviews/2026-05-21-claude-codex-practices-review.md`
+
+Latest tmux/session audit:
+
+- Session `0` has 12 windows and 11 apparent agent chats: 8 Codex/node panes
+  and 3 Claude panes.
+- `/workspace/tools/agents/sessionctl index` reports 10 live agent panes that
+  need explicit session IDs recorded, 11 recorded sessions not currently
+  matched to live panes, and one busy task without `resume.md`
+  (`brand-automation-corpus-llm-workers`).
+- Treat active-chat reconciliation as migration preflight, not a post-activation
+  cleanup. Do not move or archive task directories while current tmux panes
+  cannot be mapped to owning task records.
+
 ## Current Source Boundary
 
 `workspace-control` remains the reviewable source. Live runtime surfaces are
@@ -48,13 +64,33 @@ large task-directory movement or dataset/cache behavior changes.
 Use this order:
 
 1. Snapshot live workspace-control-relevant state.
-2. Apply the thin-instructions gate before copying any always-loaded file.
-3. Activate read-only helpers and knowledge lookup.
-4. Activate shared skills.
-5. Activate workspace rules from a thin `AGENTS.md`.
-6. Create `parked/` and run a dry-run task audit.
-7. Move only explicitly approved task directories.
-8. Leave Pi pilot disabled until a separate harness decision.
+2. Reconcile active tmux chats against task-local `resume.md` records.
+3. Apply the thin-instructions gate before copying any always-loaded file.
+4. Activate read-only helpers and knowledge lookup.
+5. Activate shared skills.
+6. Activate workspace rules from a thin `AGENTS.md`.
+7. Verify both providers from fresh sessions.
+8. Create `parked/` and run a dry-run task audit.
+9. Move only explicitly approved task directories.
+10. Add provider-enforced secret-read denies as a separate hardening slice.
+11. Leave Pi pilot disabled until a separate harness decision.
+
+## Rescoped Migration Tracks
+
+The migration is no longer a single "copy the new workspace model live" action.
+It should run as four separable tracks:
+
+| Track | Goal | Live mutation | Gate |
+|---|---|---:|---|
+| A. Recovery readiness | Make active chat/task state recoverable before changing instructions. | `resume.md` / `SESSIONS.md` only | No live agent pane lacking an owning task/session note. |
+| B. Source activation | Promote reviewed skills, helper usage, and thin instructions. | Yes | Rollback snapshot exists; validation passes. |
+| C. Lifecycle adoption | Introduce `parked/` and classify stale work. | Directory creation first; moves only after approval | Movement table reviewed and approved. |
+| D. Provider hardening | Convert secret-handling guidance into enforced provider settings. | Provider config only | Tested in fresh Claude and Codex sessions. |
+
+Track D follows official Claude Code and Codex guidance but is not required for
+the first instruction-layout activation. It should be planned immediately after
+Track B because instructions are advisory, while provider settings can enforce
+deny rules for env and credential files.
 
 ## Preflight
 
@@ -92,6 +128,44 @@ Record:
 - live shared skill inventory,
 - provider mirror inventory,
 - task counts from current and proposed status tools.
+
+## Active Chat Reconciliation Gate
+
+Before changing live instructions or moving task directories:
+
+```bash
+tmux list-windows -t 0 -F '#{window_index}:#{window_name} panes=#{window_panes}'
+tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} cmd=#{pane_current_command} path=#{pane_current_path} title=#{pane_title}'
+/workspace/tools/agents/sessionctl index
+sed -n '1,220p' /workspace/detection-platform-metal-work/SESSIONS.md
+```
+
+For each Claude/Codex pane:
+
+1. Identify the owning task directory.
+2. Record the provider, tmux target, session ID when visible, transcript path
+   when known, branch/worktree/PR context, status, and next action in that
+   task's `resume.md`.
+3. Regenerate `SESSIONS.md`.
+4. If the session ID is unavailable, record the tmux target and recovery
+   action instead of inventing an ID.
+5. If a pane is stale and safe to abandon, get explicit approval before closing
+   it.
+
+Current known issues from the 2026-05-21 audit:
+
+- `brand-automation-corpus-llm-workers` exists in `busy/` without `resume.md`.
+- Long-lived Codex panes may have stale skill metadata loaded from before the
+  workspace-control skill cleanup. Validate activation from fresh provider
+  sessions, not from those already-running panes.
+- Tmux pane `0:10` (`brand-corpus-llm`) is actively working from the
+  `brand-automation-corpus-llm-workers` planned-task prompt.
+- Tmux pane `0:12` (`workflow review`) is actively working on the workflow
+  review/migration context.
+- Tmux pane `0:9` (`PRs`) is mid-turn in a Claude PR/merge-conflict thread.
+
+Do not start task lifecycle movement until this gate is clean or explicitly
+waived.
 
 ## Thin-Instructions Gate
 
@@ -357,6 +431,37 @@ Rollback:
 
 - No live runtime rollback needed because Pi remains dark.
 
+## Slice 7: Provider-Enforced Secret Handling
+
+Goal: supplement behavioral rules with provider-level deny settings for obvious
+secret-bearing files.
+
+Actions:
+
+1. Draft deny rules in workspace-control first.
+2. For Claude Code, use `permissions.deny` in project/user settings for env
+   files, credential JSON, and auth-state paths.
+3. For Codex, use a named permission profile or sandbox configuration with
+   narrower deny rules inside writable workspace roots.
+4. Test in fresh Claude and Codex sessions by confirming allowed workspace reads
+   still work while known env/credential paths are denied.
+5. Keep credentials themselves out of workspace-control.
+
+Validation:
+
+```bash
+tools/check-sensitive-content /workspace/workspace-control
+```
+
+Record provider-specific validation evidence in the activation task. Do not
+assume these settings apply if the orchestration environment overrides
+provider-local config.
+
+Rollback:
+
+- Restore previous provider settings from the activation task rollback snapshot.
+- Restart fresh provider sessions to confirm the old settings are active.
+
 ## Overall Revert Options
 
 ### Fast Instruction Revert
@@ -428,13 +533,18 @@ Stop activation and use the relevant rollback if any of these happen:
 For the lowest-risk rollout:
 
 1. Create the activation task and rollback snapshot.
-2. Review the thin `current-workspace/AGENTS.md` activation candidate.
-3. Activate read-only helper/knowledge lookup by documenting repo-path commands.
-4. Sync shared skills.
-5. Copy reviewed thin `AGENTS.md`.
-6. Create empty `parked/`.
-7. Run the task audit and produce the movement table.
-8. Pause for approval before moving any task directories.
+2. Reconcile current tmux panes into task-local `resume.md` records, including
+   the missing `brand-automation-corpus-llm-workers/resume.md`.
+3. Review the thin `current-workspace/AGENTS.md` activation candidate.
+4. Activate read-only helper/knowledge lookup by documenting repo-path commands.
+5. Sync shared skills.
+6. Copy reviewed thin `AGENTS.md` and `CLAUDE.md`.
+7. Start fresh Claude and Codex sessions from `/workspace` and verify they load
+   the intended instructions and skill mirrors.
+8. Create empty `parked/`.
+9. Run the task audit and produce the movement table.
+10. Pause for approval before moving any task directories.
+11. Plan provider-enforced secret-read denies as the next hardening slice.
 
 This gives agents the improved workflow immediately while preserving a simple
 rollback: restore `AGENTS.md`, restore skills, remove wrappers if any, and
