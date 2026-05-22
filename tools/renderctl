@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if ROOT="$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null)"; then
+  :
+else
+  ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+
+usage() {
+  cat <<'USAGE'
+usage:
+  tools/renderctl dry-run [--out <dir>] [--keep]
+
+Render the current workspace-control compatibility outputs into a generated
+tree and diff them against the checked-in live-compatible sources.
+
+This is intentionally conservative. Until layered render rules are approved,
+the dry-run uses current-workspace/ and agent-skills/skills/ as the selected
+sources and proves that generated compatibility outputs remain clean.
+USAGE
+}
+
+rel_files() {
+  local rel="$1"
+  find "$ROOT/$rel" -type f \
+    ! -path '*/.DS_Store' \
+    -printf '%P\n' | sort
+}
+
+copy_tree() {
+  local source_rel="$1"
+  local target_rel="$2"
+  local generated_root="$3"
+
+  if [ ! -d "$ROOT/$source_rel" ]; then
+    echo "missing source directory: $source_rel" >&2
+    return 1
+  fi
+
+  mkdir -p "$generated_root/$(dirname "$target_rel")"
+  rm -rf "$generated_root/$target_rel"
+  mkdir -p "$generated_root/$target_rel"
+  cp -a "$ROOT/$source_rel/." "$generated_root/$target_rel/"
+}
+
+compare_tree() {
+  local target_rel="$1"
+  local generated_root="$2"
+  local diff_dir="$3"
+  local diff_file="$diff_dir/${target_rel//\//__}.diff"
+  local meta_current="$diff_dir/${target_rel//\//__}.current-metadata"
+  local meta_generated="$diff_dir/${target_rel//\//__}.generated-metadata"
+  local status=0
+
+  if diff -ruN "$ROOT/$target_rel" "$generated_root/$target_rel" >"$diff_file"; then
+    rm -f "$diff_file"
+    printf -- "- %s content: clean\n" "$target_rel"
+  else
+    printf -- "- %s content: differs (diff: %s)\n" "$target_rel" "$diff_file"
+    sed -n '1,200p' "$diff_file"
+    status=1
+  fi
+
+  (
+    cd "$ROOT/$target_rel"
+    find . -type f -printf '%m\t%P\n' | sort
+  ) >"$meta_current"
+  (
+    cd "$generated_root/$target_rel"
+    find . -type f -printf '%m\t%P\n' | sort
+  ) >"$meta_generated"
+
+  if diff -u "$meta_current" "$meta_generated" >"$diff_file.metadata"; then
+    rm -f "$meta_current" "$meta_generated" "$diff_file.metadata"
+    printf -- "- %s metadata: clean\n" "$target_rel"
+  else
+    printf -- "- %s metadata: differs (diff: %s)\n" "$target_rel" "$diff_file.metadata"
+    sed -n '1,200p' "$diff_file.metadata"
+    status=1
+  fi
+
+  return "$status"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  dry-run)
+    shift
+    out_dir=""
+    keep=0
+
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --out)
+          if [ "$#" -lt 2 ]; then
+            echo "--out requires a directory" >&2
+            exit 2
+          fi
+          out_dir="$2"
+          shift 2
+          ;;
+        --keep)
+          keep=1
+          shift
+          ;;
+        -h|--help)
+          usage
+          exit 0
+          ;;
+        *)
+          usage >&2
+          exit 2
+          ;;
+      esac
+    done
+
+    temp_created=0
+    if [ -z "$out_dir" ]; then
+      out_dir="$(mktemp -d "${TMPDIR:-/tmp}/workspace-control-render.XXXXXX")"
+      temp_created=1
+    else
+      mkdir -p "$out_dir"
+      out_dir="$(cd "$out_dir" && pwd)"
+    fi
+
+    cleanup() {
+      if [ "$temp_created" -eq 1 ] && [ "$keep" -ne 1 ]; then
+        rm -rf "$out_dir"
+      fi
+    }
+    trap cleanup EXIT
+
+    generated_root="$out_dir/rendered"
+    diff_dir="$out_dir/diffs"
+    manifest="$out_dir/manifest.tsv"
+    rm -rf "$generated_root" "$diff_dir"
+    mkdir -p "$generated_root" "$diff_dir"
+
+    {
+      printf 'source\ttarget\tmode\n'
+      printf 'current-workspace\tcurrent-workspace\tcompatibility-copy\n'
+      printf 'agent-skills/skills\tagent-skills/skills\tcompatibility-copy\n'
+    } >"$manifest"
+
+    copy_tree "current-workspace" "current-workspace" "$generated_root"
+    copy_tree "agent-skills/skills" "agent-skills/skills" "$generated_root"
+
+    echo "# Render Dry Run"
+    echo "Root: $ROOT"
+    echo "Mode: compatibility-source"
+    echo "Generated root: $generated_root"
+    echo "Manifest: $manifest"
+    echo
+
+    echo "## Selected Sources"
+    echo "- current-workspace/ -> current-workspace/"
+    echo "- agent-skills/skills/ -> agent-skills/skills/"
+    echo
+
+    echo "## Source Files"
+    while IFS= read -r file; do
+      printf -- "- current-workspace/%s\n" "$file"
+    done < <(rel_files "current-workspace")
+    while IFS= read -r file; do
+      printf -- "- agent-skills/skills/%s\n" "$file"
+    done < <(rel_files "agent-skills/skills")
+    echo
+
+    echo "## Target Diffs"
+    status=0
+    compare_tree "current-workspace" "$generated_root" "$diff_dir" || status=1
+    compare_tree "agent-skills/skills" "$generated_root" "$diff_dir" || status=1
+    echo
+
+    echo "## Follow-Up Validation"
+    cat <<'COMMANDS'
+- git diff --check
+- ./tools/check-sensitive-content .
+- ./tools/knowledgectl lint
+- SKILLCTL_CANONICAL_DIR=/workspace/workspace-control/agent-skills/skills /workspace/tools/skills/skillctl validate
+COMMANDS
+
+    if [ "$status" -eq 0 ]; then
+      echo
+      echo "render_dry_run: clean"
+    else
+      echo
+      echo "render_dry_run: differences found"
+    fi
+
+    exit "$status"
+    ;;
+  -h|--help|"")
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

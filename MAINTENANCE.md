@@ -48,6 +48,11 @@ Until render/sync tooling exists:
   dry-run proving generated outputs match the current live-compatible tree,
 - keep Pi adapter work separate from live Claude/Codex activation.
 
+The first dry-run gate is `tools/renderctl dry-run`. It currently proves the
+checked-in live-compatible outputs can be regenerated from the compatibility
+source tree without drift. Future modes may compose from `core/`,
+`workspaces/`, and `providers/` only after their generated diffs are clean.
+
 ## Routine Checks
 
 Run from `/workspace/workspace-control` before committing or pushing:
@@ -55,6 +60,7 @@ Run from `/workspace/workspace-control` before committing or pushing:
 ```bash
 ./tools/check-sensitive-content .
 ./tools/knowledgectl lint
+./tools/renderctl dry-run
 ./tools/knowledgectl index
 git diff --stat
 git status --short --branch

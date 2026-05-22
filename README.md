@@ -62,6 +62,7 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `tools/workspace-status` - short live orientation report for agents.
 - `tools/workspace-artifact-inventory` - audit-grade inventory for cleanup/review work.
 - `tools/knowledgectl` - lint, index, search, and stale-check provider-neutral knowledge notes.
+- `tools/renderctl` - render/sync dry-run for compatibility outputs before layered source moves.
 - `tools/check-sensitive-content` - large-file and redacted secret-pattern check before commits or remotes.
 
 ## Current Plans
@@ -76,5 +77,6 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
 - `docs/specs/task-resumability.md` - task-first notes, resume packets, chat-dependency classification, and measurable resumability scoring.
 - `docs/specs/repo-organization.md` - proposed layered source model for core, workspace overlays, provider adapters, and live compatibility outputs.
+- `docs/specs/render-sync-dry-run.md` - conservative render/sync dry-run gate before canonical source moves.
 - `docs/plans/2026-05-22-layered-repo-organization.md` - staged plan for moving from the flat compatibility tree to the layered model.
 - `MAINTENANCE.md` - ongoing repo upkeep, live sync, skill sync, knowledge sync, and Pi boundary rules.

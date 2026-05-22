@@ -48,7 +48,11 @@ No canonical source moves.
 
 ## Slice 2: Render/Sync Design
 
-Design a deterministic render path:
+Design a deterministic render path. The first conservative command is
+`tools/renderctl dry-run`, which proves the current compatibility outputs can
+be regenerated from existing compatibility sources before any canonical moves.
+
+Target future render path:
 
 ```text
 core + workspace overlay + provider adapter -> current-workspace outputs
