@@ -15,6 +15,7 @@ beyond one task:
 - helper scripts under `tools/` change,
 - task lifecycle definitions or templates change,
 - task resumability scoring or note templates change,
+- layered source layout, overlays, provider adapters, or profile maps change,
 - activation, rollback, or provider-practice docs change.
 
 Do not update this repo for ordinary task notes, screenshots, datasets,
@@ -32,6 +33,20 @@ Use this direction unless a task explicitly says otherwise:
 Live emergency fixes can happen in `/workspace` first. When that happens, copy
 the durable part back into this repo before closing the task so the source repo
 does not lag behind live practice.
+
+## Layered Source Layout
+
+The target organization is defined in `docs/specs/repo-organization.md`.
+
+Until render/sync tooling exists:
+
+- keep `current-workspace/` and `agent-skills/` as the live-compatible
+  activation sources,
+- use `core/`, `workspaces/`, and `providers/` for source maps and new layered
+  proposals only,
+- do not duplicate or move canonical skills into layered directories without a
+  dry-run proving generated outputs match the current live-compatible tree,
+- keep Pi adapter work separate from live Claude/Codex activation.
 
 ## Routine Checks
 
@@ -62,12 +77,18 @@ first when practical:
 Provider mirrors under `/workspace/.claude/skills/` and
 `/workspace/.agents/skills/` are generated copies, not canonical sources.
 
+When the skill tree is split later, `agent-skills/skills/` should become a
+generated compatibility tree composed from `core/skills/` and the selected
+workspace overlay skills.
+
 ## Live Instruction Sync
 
 Keep always-loaded instructions thin.
 
-- Edit `AGENTS.md` and `current-workspace/AGENTS.md` together when changing the
-  shared workspace contract.
+- Edit `AGENTS.md` and `current-workspace/AGENTS.md` together only when the
+  same shared rule must apply to both this repo and the live workspace.
+- Edit `current-workspace/AGENTS.md` for live `/workspace/AGENTS.md` changes.
+- Edit top-level `AGENTS.md` only for workspace-control repo behavior.
 - Edit `current-workspace/CLAUDE.md` only for Claude-specific import/wrapper
   behavior.
 - Keep detailed procedures in skills, tool READMEs, or docs.
@@ -109,6 +130,13 @@ fresh agents still need chat history to resume.
 They are not live workspace activation inputs unless the user explicitly starts
 the Pi migration path. Keep Pi changes separate from live Claude/Codex
 workflow changes when possible.
+
+Provider adapter notes belong under `providers/pi/`; runnable draft Pi files
+remain under `.pi/` and `pi-pilot/` until a package/schema ADR is approved.
+For example, a Pi package/schema decision or mapping rationale belongs under
+`providers/pi/` or `docs/decisions/`, while `.pi/agents/*.md`,
+`.pi/workflows/*.json`, and `.pi/settings.example.json` remain draft runnable
+configuration examples.
 
 ## Closeout Reminder
 

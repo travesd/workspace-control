@@ -22,10 +22,10 @@ submit-tr.env
 *.jsonl
 *.sqlite
 *.sqlite-*
-logs/
-sessions/
-telemetry/
-usage-data/
+/logs/
+/sessions/
+/telemetry/
+/usage-data/
 
 # Large workspace data products
 /datasets/
@@ -44,15 +44,17 @@ usage-data/
 *.gif
 
 # Product repos and worktrees should not be vendored here
-detection-platform-metal/
-detection-platform-metal.worktrees/
-detection-platform-metal-work/busy/
-detection-platform-metal-work/done/
-detection-platform-metal-work/archived/
-detection-platform-metal-work/later/
-detection-platform-metal-work/parked/
-detection-platform-metal-work/planned/
-detection-platform-metal-work/investigations/
+/detection-platform-metal/
+/detection-platform-metal.worktrees/
+
+# Task lifecycle directories are live workspace state, not repo source
+/detection-platform-metal-work/busy/
+/detection-platform-metal-work/done/
+/detection-platform-metal-work/archived/
+/detection-platform-metal-work/later/
+/detection-platform-metal-work/parked/
+/detection-platform-metal-work/planned/
+/detection-platform-metal-work/investigations/
 
 # Pi runtime artifacts
 .pi/harness/runs/

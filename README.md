@@ -2,10 +2,18 @@
 
 This repo version-controls the operating model for the `/workspace` detection-platform-metal sandbox.
 
-It has two tracks:
+It currently has two compatibility tracks:
 
 - `current-workspace/` and `agent-skills/` preserve the current Claude/Codex workspace approach.
 - `pi-pilot/` and `.pi/` hold an experimental Pi harness translation layer.
+
+The next source layout is layered:
+
+- `core/` for portable provider-neutral primitives,
+- `workspaces/detection-platform-metal/` for the current workspace overlay,
+- `providers/` for Claude, Codex, and Pi adapters,
+- `current-workspace/` and `agent-skills/` as live-compatible activation
+  sources until render/sync tooling can generate them from layered sources.
 
 The source of truth should remain provider-neutral. Claude memory, Codex memory, and Pi configuration may mirror or consume this repo, but should not become separate canonical stores.
 
@@ -17,6 +25,7 @@ For ongoing upkeep after activation, see `MAINTENANCE.md`.
 
 - Workspace instructions and conventions.
 - Shared Agent Skills.
+- Core skills and workspace overlay skill source maps.
 - Durable knowledge notes with provenance and re-verification rules.
 - Workspace-control helper scripts in `tools/`.
 - Process decisions and ADRs.
@@ -37,8 +46,11 @@ For ongoing upkeep after activation, see `MAINTENANCE.md`.
 
 This scaffold contains:
 
-- current workspace instructions from `/workspace/AGENTS.md` and `/workspace/CLAUDE.md`,
+- live-compatible current workspace instructions for `/workspace/AGENTS.md` and
+  `/workspace/CLAUDE.md`,
 - current shared skills from `/workspace/agent-skills/skills/`,
+- layered source-layout scaffolding under `core/`, `workspaces/`, and
+  `providers/`,
 - the 2026-05-20 workspace organization investigation outputs,
 - normalized provider-neutral knowledge notes under `knowledge/`,
 - a Pi pilot area with draft agents and workflow mapping.
@@ -60,6 +72,9 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `docs/reference/live-workspace-details.md` - on-demand details moved out of always-loaded workspace instructions.
 - `docs/reviews/2026-05-21-thin-instructions-audit.md` - audit of always-loaded instruction size, links, and split recommendations.
 - `docs/reviews/2026-05-21-workflow-improvements-final-review.md` - end-to-end review of final repo state against scoped improvements.
+- `docs/reviews/2026-05-22-layered-repo-organization-review.md` - review of the layered source-layout scaffold and source-of-truth boundaries.
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
 - `docs/specs/task-resumability.md` - task-first notes, resume packets, chat-dependency classification, and measurable resumability scoring.
+- `docs/specs/repo-organization.md` - proposed layered source model for core, workspace overlays, provider adapters, and live compatibility outputs.
+- `docs/plans/2026-05-22-layered-repo-organization.md` - staged plan for moving from the flat compatibility tree to the layered model.
 - `MAINTENANCE.md` - ongoing repo upkeep, live sync, skill sync, knowledge sync, and Pi boundary rules.

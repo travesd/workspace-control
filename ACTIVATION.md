@@ -6,10 +6,12 @@
 
 | Area | Edit Here | Live Runtime | Activation Gate |
 |---|---|---|---|
-| Workspace rules | `AGENTS.md`, `current-workspace/AGENTS.md` | `/workspace/AGENTS.md` | Human review, then copy/sync intentionally. |
+| Workspace-control repo rules | `AGENTS.md` | This repo only | Keep thin; do not copy to live `/workspace`. |
+| Live workspace rules | `current-workspace/AGENTS.md` | `/workspace/AGENTS.md` | Human review, then copy/sync intentionally. |
 | Shared skills | `agent-skills/skills/` | `/workspace/agent-skills/skills/` plus provider mirrors | Approval, then sync to live canonical skills and run `skillctl validate && skillctl sync`. |
 | Durable knowledge | `knowledge/` | This repo after agents are pointed at it | Sanitized notes only; no raw provider memory exports. |
 | Helper scripts | `tools/` | Optional; live tools remain `/workspace/tools/` | Review, then copy or install deliberately. |
+| Layered source maps | `core/`, `workspaces/`, `providers/` | None until render/sync tooling is approved | Approve render/sync tooling and a clean dry-run diff before activation. |
 | Pi pilot | `.pi/`, `pi-pilot/` | Not active | Follow `pi-pilot/ACTIVATION.md`. |
 
 ## Activation Rules
@@ -17,6 +19,8 @@
 - Do not push this repo to a remote until `SANITIZATION.md` is current and `tools/check-sensitive-content .` passes.
 - Do not sync skill changes into live mirrors without explicit approval.
 - Do not treat `.pi/workflows/*.json` as runnable until the package/schema has been selected and validated.
+- Do not activate layered `core/`, `workspaces/`, or `providers/` outputs until
+  generated files diff cleanly against the current live-compatible sources.
 - Preserve live workspace guardrails: Docker-only product repo execution, no auto-push, local-stack validation, and read-only production access only when explicitly authorized.
 
 ## Suggested Sync Sequence
