@@ -1,0 +1,6 @@
+interface:
+  display_name: "Skill Maintainer"
+  short_description: "Keep shared skills portable"
+  default_prompt: "Use $skill-maintainer to add or revise a shared Claude/Codex skill."
+policy:
+  allow_implicit_invocation: true

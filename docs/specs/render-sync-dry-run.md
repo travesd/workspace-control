@@ -13,8 +13,8 @@ adapter files.
 
 ## Current Behavior
 
-`tools/renderctl dry-run` defaults to `--mode all`, which renders both the
-compatibility tree and the draft instruction composition.
+`tools/renderctl dry-run` defaults to `--mode all`, which renders the
+compatibility tree, draft instruction composition, and draft skill composition.
 
 Compatibility mode:
 
@@ -30,6 +30,13 @@ Instruction mode:
 | `core/AGENTS.contract.md` | `current-workspace/AGENTS.md` | instruction fragment |
 | `workspaces/detection-platform-metal/AGENTS.overlay.md` | `current-workspace/AGENTS.md` | instruction fragment |
 | `workspaces/detection-platform-metal/AGENTS.references.md` | `current-workspace/AGENTS.md` | instruction fragment |
+
+Skill mode:
+
+| Selected Source | Generated Target | Mode |
+|---|---|---|
+| `core/skills/<skill>/` | `agent-skills/skills/<skill>/` | skill layer |
+| `workspaces/detection-platform-metal/skills/<skill>/` | `agent-skills/skills/<skill>/` | skill layer |
 
 The command prints:
 
@@ -62,17 +69,20 @@ Before any canonical source move, the render path must prove:
 4. activation and rollback docs name the exact generated targets,
 5. Pi remains excluded unless the user explicitly starts the Pi path.
 
+For generated skill validation, run `tools/renderctl dry-run --mode skills
+--out <dir>` and validate with `SKILLCTL_CANONICAL_DIR=<dir>/rendered/agent-skills/skills`.
+
 ## Future Render Modes
 
 Implemented modes:
 
 - `instructions`: `core` contract plus workspace overlay plus activation
   reference rendered into `current-workspace/AGENTS.md`.
+- `skills`: draft core skill copies plus draft detection overlay skill copies
+  rendered into `agent-skills/skills/`.
 
 The next implementation slices can add explicit modes such as:
 
-- `skills`: portable core skills plus workspace overlay skills rendered into
-  `agent-skills/skills/`,
 - `provider`: provider adapters rendered into Claude/Codex/Pi config examples,
 - `live-check`: read-only comparison between repo compatibility outputs and
   live `/workspace` targets.

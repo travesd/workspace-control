@@ -1,7 +1,11 @@
 # Core Skills
 
-This directory will hold portable shared skills after the split from the
-current live-compatible `agent-skills/skills/` tree.
+This directory holds draft render-input copies of portable shared skill
+concepts for `tools/renderctl dry-run --mode skills`.
+
+The current live-compatible canonical source remains `agent-skills/skills/`
+until explicit activation. Keep these draft copies synchronized with the
+compatibility tree; do not treat them as live skill authority yet.
 
 Core skill concepts:
 
@@ -14,9 +18,6 @@ Core skill concepts:
 - `task-closeoff`
 - `workspace-artifact-inventory`
 - `workspace-status`
-
-Do not move or duplicate skills here until a render/sync path can generate the
-current `agent-skills/skills/` tree and validate it.
 
 Several current `SKILL.md` files above still contain `/workspace` paths or
 detection-platform-metal assumptions. Those need parameterization or a split

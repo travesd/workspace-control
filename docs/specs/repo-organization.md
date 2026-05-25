@@ -114,7 +114,8 @@ outputs match the current live behavior.
 ## Skill Split
 
 Current `agent-skills/skills/` remains the active canonical source until a split
-is explicitly activated.
+is explicitly activated. Draft copies under `core/skills/` and
+`workspaces/detection-platform-metal/skills/` are render inputs only.
 
 Proposed future split by concept:
 
@@ -190,7 +191,7 @@ Do not make the layered layout live until:
 
 The conservative first gate is `tools/renderctl dry-run`, described in
 `docs/specs/render-sync-dry-run.md`. It now checks the compatibility tree and
-the draft instruction composition. Future modes can add skills and provider
+the draft instruction and skill composition. Future modes can add provider
 adapter composition after clean diffs exist.
 
 ## Provider Notes

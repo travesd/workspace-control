@@ -11,7 +11,7 @@ fi
 usage() {
   cat <<'USAGE'
 usage:
-  tools/renderctl dry-run [--mode all|compatibility|instructions] [--out <dir>] [--keep]
+  tools/renderctl dry-run [--mode all|compatibility|instructions|skills] [--out <dir>] [--keep]
 
 Render the current workspace-control compatibility outputs into a generated
 tree and diff them against the checked-in live-compatible sources.
@@ -25,6 +25,13 @@ USAGE
 rel_files() {
   local rel="$1"
   find "$ROOT/$rel" -type f \
+    ! -path '*/.DS_Store' \
+    -printf '%P\n' | sort
+}
+
+rel_skill_files() {
+  local rel="$1"
+  find "$ROOT/$rel" -mindepth 2 -type f \
     ! -path '*/.DS_Store' \
     -printf '%P\n' | sort
 }
@@ -147,6 +154,32 @@ append_instruction_fragments() {
   chmod --reference="$ROOT/$target_rel" "$target"
 }
 
+copy_skill_layer() {
+  local source_rel="$1"
+  local target_rel="$2"
+  local generated_root="$3"
+  local manifest="$4"
+  local source_dir="$ROOT/$source_rel"
+  local skill_path
+  local skill_name
+
+  if [ ! -d "$source_dir" ]; then
+    echo "missing skill source directory: $source_rel" >&2
+    return 1
+  fi
+
+  mkdir -p "$generated_root/$target_rel"
+  while IFS= read -r skill_path; do
+    skill_name="$(basename "$skill_path")"
+    if [ -e "$generated_root/$target_rel/$skill_name" ]; then
+      echo "duplicate generated skill: $skill_name" >&2
+      return 1
+    fi
+    cp -a "$skill_path" "$generated_root/$target_rel/$skill_name"
+    printf '%s/%s\t%s/%s\tskill-layer\n' "$source_rel" "$skill_name" "$target_rel" "$skill_name" >>"$manifest"
+  done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -type d | sort)
+}
+
 cmd="${1:-}"
 case "$cmd" in
   dry-run)
@@ -159,14 +192,14 @@ case "$cmd" in
       case "$1" in
         --mode)
           if [ "$#" -lt 2 ]; then
-            echo "--mode requires all, compatibility, or instructions" >&2
+            echo "--mode requires all, compatibility, instructions, or skills" >&2
             exit 2
           fi
           mode="$2"
           case "$mode" in
-            all|compatibility|instructions) ;;
+            all|compatibility|instructions|skills) ;;
             *)
-              echo "--mode requires all, compatibility, or instructions" >&2
+              echo "--mode requires all, compatibility, instructions, or skills" >&2
               exit 2
               ;;
           esac
@@ -230,6 +263,12 @@ case "$cmd" in
     if [ "$mode" = "all" ] || [ "$mode" = "instructions" ]; then
       append_instruction_fragments "$generated_root" "$manifest"
     fi
+    if [ "$mode" = "all" ] || [ "$mode" = "skills" ]; then
+      rm -rf "$generated_root/agent-skills/skills"
+      mkdir -p "$generated_root/agent-skills/skills"
+      copy_skill_layer "core/skills" "agent-skills/skills" "$generated_root" "$manifest"
+      copy_skill_layer "workspaces/detection-platform-metal/skills" "agent-skills/skills" "$generated_root" "$manifest"
+    fi
 
     echo "# Render Dry Run"
     echo "Root: $ROOT"
@@ -248,6 +287,10 @@ case "$cmd" in
       echo "- workspaces/detection-platform-metal/AGENTS.overlay.md -> current-workspace/AGENTS.md"
       echo "- workspaces/detection-platform-metal/AGENTS.references.md -> current-workspace/AGENTS.md"
     fi
+    if [ "$mode" = "all" ] || [ "$mode" = "skills" ]; then
+      echo "- core/skills/<skill>/ -> agent-skills/skills/<skill>/"
+      echo "- workspaces/detection-platform-metal/skills/<skill>/ -> agent-skills/skills/<skill>/"
+    fi
     echo
 
     echo "## Source Files"
@@ -264,16 +307,29 @@ case "$cmd" in
       echo "- workspaces/detection-platform-metal/AGENTS.overlay.md"
       echo "- workspaces/detection-platform-metal/AGENTS.references.md"
     fi
+    if [ "$mode" = "all" ] || [ "$mode" = "skills" ]; then
+      while IFS= read -r file; do
+        printf -- "- core/skills/%s\n" "$file"
+      done < <(rel_skill_files "core/skills")
+      while IFS= read -r file; do
+        printf -- "- workspaces/detection-platform-metal/skills/%s\n" "$file"
+      done < <(rel_skill_files "workspaces/detection-platform-metal/skills")
+    fi
     echo
 
     echo "## Target Diffs"
     status=0
-    if [ "$mode" = "all" ] || [ "$mode" = "compatibility" ]; then
+    if [ "$mode" = "compatibility" ]; then
       compare_tree "current-workspace" "$generated_root" "$diff_dir" || status=1
       compare_tree "agent-skills/skills" "$generated_root" "$diff_dir" || status=1
+    elif [ "$mode" = "all" ]; then
+      compare_tree "current-workspace" "$generated_root" "$diff_dir" || status=1
     fi
     if [ "$mode" = "all" ] || [ "$mode" = "instructions" ]; then
       compare_file "current-workspace/AGENTS.md" "$generated_root" "$diff_dir" || status=1
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "skills" ]; then
+      compare_tree "agent-skills/skills" "$generated_root" "$diff_dir" || status=1
     fi
     echo
 
@@ -286,6 +342,7 @@ case "$cmd" in
 - ./tools/check-sensitive-content .
 - ./tools/knowledgectl lint
 - SKILLCTL_CANONICAL_DIR=/workspace/workspace-control/agent-skills/skills /workspace/tools/skills/skillctl validate
+- SKILLCTL_CANONICAL_DIR=<generated-root>/agent-skills/skills /workspace/tools/skills/skillctl validate
 COMMANDS
 
     if [ "$status" -eq 0 ]; then

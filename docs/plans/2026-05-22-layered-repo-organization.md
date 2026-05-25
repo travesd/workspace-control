@@ -52,6 +52,7 @@ Design a deterministic render path. The first conservative command is
 `tools/renderctl dry-run`, which proves the current compatibility outputs can
 be regenerated from existing compatibility sources before any canonical moves.
 It now also supports instruction composition from draft layered inputs.
+Skill composition from draft layered inputs is also supported.
 
 Target future render path:
 
@@ -70,11 +71,14 @@ Before any move, build a dry-run command that reports:
 
 ## Slice 3: Skill Split
 
-After render dry-run exists:
+Current status: draft skill copies exist under `core/skills/` and
+`workspaces/detection-platform-metal/skills/`, and `tools/renderctl dry-run
+--mode skills` verifies that they generate the current compatibility tree.
 
-1. Copy core-candidate skills to `core/skills/` in the layered source tree.
-2. Copy detection-specific skills to
-   `workspaces/detection-platform-metal/skills/`.
+Before activation:
+
+1. Audit core-candidate skills for `/workspace` and detection assumptions.
+2. Split or parameterize non-portable core skill content.
 3. Generate `agent-skills/skills/` from both sources.
 4. Confirm generated tree matches the current live-compatible tree.
 5. Only then remove duplicated compatibility copies.

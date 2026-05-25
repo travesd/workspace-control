@@ -1,0 +1,6 @@
+interface:
+  display_name: "Daily Submissions Metrics"
+  short_description: "Match UI submission counts exactly"
+  default_prompt: "Use $daily-submissions-metrics to explain a Daily Submissions count from the DB."
+policy:
+  allow_implicit_invocation: true

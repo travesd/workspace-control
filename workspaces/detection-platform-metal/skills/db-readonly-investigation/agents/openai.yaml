@@ -1,0 +1,6 @@
+interface:
+  display_name: "DB Read-Only Investigation"
+  short_description: "Safe detection DB inspection"
+  default_prompt: "Use $db-readonly-investigation to inspect detection DB data safely."
+policy:
+  allow_implicit_invocation: true

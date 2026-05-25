@@ -1,7 +1,11 @@
 # Detection Platform Metal Skills
 
-This directory will hold detection-platform-metal-specific skills after the
-skill tree is split.
+This directory holds draft render-input copies of detection-platform-metal
+specific skills for `tools/renderctl dry-run --mode skills`.
+
+The current live-compatible canonical source remains `agent-skills/skills/`
+until explicit activation. Keep these draft copies synchronized with the
+compatibility tree; do not treat them as live skill authority yet.
 
 Candidate workspace overlay skills:
 
