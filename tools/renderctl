@@ -11,14 +11,14 @@ fi
 usage() {
   cat <<'USAGE'
 usage:
-  tools/renderctl dry-run [--mode all|compatibility|instructions|skills|providers] [--out <dir>] [--keep]
+  tools/renderctl dry-run [--mode all|compatibility|instructions|skills|providers|live-check] [--live-root <dir>] [--out <dir>] [--keep]
 
 Render the current workspace-control compatibility outputs into a generated
 tree and diff them against the checked-in live-compatible sources.
 
-This is intentionally conservative. The default mode checks both the current
-compatibility copy and the draft instruction composition. It never writes to the
-live workspace.
+This is intentionally conservative. The default mode checks checked-in
+compatibility outputs plus draft instruction, skill, and provider composition.
+It never writes to the live workspace.
 USAGE
 }
 
@@ -117,6 +117,145 @@ compare_file() {
     printf -- "- %s metadata: clean\n" "$target_rel"
   else
     printf -- "- %s metadata: differs (diff: %s)\n" "$target_rel" "$diff_file.metadata"
+    sed -n '1,200p' "$diff_file.metadata"
+    status=1
+  fi
+
+  return "$status"
+}
+
+metadata_for_tree() {
+  local path="$1"
+  local profile="$2"
+
+  (
+    cd "$path"
+    case "$profile" in
+      skill-mirror)
+        find . -type f \
+          ! -name '.skillctl-managed' \
+          -printf '%m\t%P\n' | sort
+        ;;
+      tools)
+        find . -type f \
+          ! -path '*/__pycache__/*' \
+          ! -name '*.pyc' \
+          -printf '%m\t%P\n' | sort
+        ;;
+      none)
+        find . -type f -printf '%m\t%P\n' | sort
+        ;;
+      *)
+        echo "unknown metadata profile: $profile" >&2
+        return 1
+        ;;
+    esac
+  )
+}
+
+compare_live_tree() {
+  local source_rel="$1"
+  local target_rel="$2"
+  local live_root="$3"
+  local diff_dir="$4"
+  local profile="$5"
+  local label="live/$target_rel"
+  local diff_key="${label//\//__}"
+  local diff_file="$diff_dir/$diff_key.diff"
+  local meta_source="$diff_dir/$diff_key.source-metadata"
+  local meta_live="$diff_dir/$diff_key.live-metadata"
+  local source_path="$ROOT/$source_rel"
+  local target_path="$live_root/$target_rel"
+  local diff_args=(-ruN)
+  local status=0
+
+  if [ ! -d "$source_path" ]; then
+    echo "missing live-check source directory: $source_rel" >&2
+    return 1
+  fi
+  if [ ! -d "$target_path" ]; then
+    echo "missing live-check target directory: $target_path" >&2
+    return 1
+  fi
+
+  case "$profile" in
+    skill-mirror)
+      diff_args+=(-x '.skillctl-managed')
+      ;;
+    tools)
+      diff_args+=(-x '__pycache__' -x '*.pyc')
+      ;;
+    none) ;;
+    *)
+      echo "unknown live-check profile: $profile" >&2
+      return 1
+      ;;
+  esac
+
+  if diff "${diff_args[@]}" "$source_path" "$target_path" >"$diff_file"; then
+    rm -f "$diff_file"
+    printf -- "- %s content: clean\n" "$label"
+  else
+    printf -- "- %s content: differs (diff: %s)\n" "$label" "$diff_file"
+    sed -n '1,200p' "$diff_file"
+    status=1
+  fi
+
+  metadata_for_tree "$source_path" "$profile" >"$meta_source"
+  metadata_for_tree "$target_path" "$profile" >"$meta_live"
+
+  if diff -u "$meta_source" "$meta_live" >"$diff_file.metadata"; then
+    rm -f "$meta_source" "$meta_live" "$diff_file.metadata"
+    printf -- "- %s metadata: clean\n" "$label"
+  else
+    printf -- "- %s metadata: differs (diff: %s)\n" "$label" "$diff_file.metadata"
+    sed -n '1,200p' "$diff_file.metadata"
+    status=1
+  fi
+
+  return "$status"
+}
+
+compare_live_file() {
+  local source_rel="$1"
+  local target_rel="$2"
+  local live_root="$3"
+  local diff_dir="$4"
+  local label="live/$target_rel"
+  local diff_key="${label//\//__}"
+  local diff_file="$diff_dir/$diff_key.diff"
+  local meta_source="$diff_dir/$diff_key.source-metadata"
+  local meta_live="$diff_dir/$diff_key.live-metadata"
+  local source_path="$ROOT/$source_rel"
+  local target_path="$live_root/$target_rel"
+  local status=0
+
+  if [ ! -f "$source_path" ]; then
+    echo "missing live-check source file: $source_rel" >&2
+    return 1
+  fi
+  if [ ! -f "$target_path" ]; then
+    echo "missing live-check target file: $target_path" >&2
+    return 1
+  fi
+
+  if diff -u "$source_path" "$target_path" >"$diff_file"; then
+    rm -f "$diff_file"
+    printf -- "- %s content: clean\n" "$label"
+  else
+    printf -- "- %s content: differs (diff: %s)\n" "$label" "$diff_file"
+    sed -n '1,200p' "$diff_file"
+    status=1
+  fi
+
+  stat -c '%a' "$source_path" >"$meta_source"
+  stat -c '%a' "$target_path" >"$meta_live"
+
+  if diff -u "$meta_source" "$meta_live" >"$diff_file.metadata"; then
+    rm -f "$meta_source" "$meta_live" "$diff_file.metadata"
+    printf -- "- %s metadata: clean\n" "$label"
+  else
+    printf -- "- %s metadata: differs (diff: %s)\n" "$label" "$diff_file.metadata"
     sed -n '1,200p' "$diff_file.metadata"
     status=1
   fi
@@ -233,22 +372,31 @@ case "$cmd" in
     out_dir=""
     keep=0
     mode="all"
+    live_root="/workspace"
 
     while [ "$#" -gt 0 ]; do
       case "$1" in
         --mode)
           if [ "$#" -lt 2 ]; then
-            echo "--mode requires all, compatibility, instructions, skills, or providers" >&2
+            echo "--mode requires all, compatibility, instructions, skills, providers, or live-check" >&2
             exit 2
           fi
           mode="$2"
           case "$mode" in
-            all|compatibility|instructions|skills|providers) ;;
+            all|compatibility|instructions|skills|providers|live-check) ;;
             *)
-              echo "--mode requires all, compatibility, instructions, skills, or providers" >&2
+              echo "--mode requires all, compatibility, instructions, skills, providers, or live-check" >&2
               exit 2
               ;;
           esac
+          shift 2
+          ;;
+        --live-root)
+          if [ "$#" -lt 2 ]; then
+            echo "--live-root requires a directory" >&2
+            exit 2
+          fi
+          live_root="$2"
           shift 2
           ;;
         --out)
@@ -322,6 +470,9 @@ case "$cmd" in
     echo "# Render Dry Run"
     echo "Root: $ROOT"
     echo "Mode: $mode"
+    if [ "$mode" = "live-check" ]; then
+      echo "Live root: $live_root"
+    fi
     echo "Generated root: $generated_root"
     echo "Manifest: $manifest"
     echo
@@ -345,6 +496,14 @@ case "$cmd" in
       echo "- providers/claude/config/mcp.json -> current-workspace/config/mcp.json"
       echo "- providers/codex/config/codex.config.toml -> current-workspace/config/codex.config.toml"
       echo "- providers/pi/config/settings.example.json -> .pi/settings.example.json"
+    fi
+    if [ "$mode" = "live-check" ]; then
+      echo "- current-workspace/AGENTS.md -> $live_root/AGENTS.md"
+      echo "- current-workspace/CLAUDE.md -> $live_root/CLAUDE.md"
+      echo "- current-workspace/tools/ -> $live_root/tools/"
+      echo "- agent-skills/skills/ -> $live_root/agent-skills/skills/"
+      echo "- agent-skills/skills/ -> $live_root/.claude/skills/ (excluding .skillctl-managed)"
+      echo "- agent-skills/skills/ -> $live_root/.agents/skills/ (excluding .skillctl-managed)"
     fi
     echo
 
@@ -376,6 +535,16 @@ case "$cmd" in
       echo "- providers/codex/config/codex.config.toml"
       echo "- providers/pi/config/settings.example.json"
     fi
+    if [ "$mode" = "live-check" ]; then
+      echo "- current-workspace/AGENTS.md"
+      echo "- current-workspace/CLAUDE.md"
+      while IFS= read -r file; do
+        printf -- "- current-workspace/tools/%s\n" "$file"
+      done < <(rel_files "current-workspace/tools")
+      while IFS= read -r file; do
+        printf -- "- agent-skills/skills/%s\n" "$file"
+      done < <(rel_files "agent-skills/skills")
+    fi
     echo
 
     echo "## Target Diffs"
@@ -398,6 +567,14 @@ case "$cmd" in
       compare_file "current-workspace/config/codex.config.toml" "$generated_root" "$diff_dir" || status=1
       compare_file ".pi/settings.example.json" "$generated_root" "$diff_dir" || status=1
     fi
+    if [ "$mode" = "live-check" ]; then
+      compare_live_file "current-workspace/AGENTS.md" "AGENTS.md" "$live_root" "$diff_dir" || status=1
+      compare_live_file "current-workspace/CLAUDE.md" "CLAUDE.md" "$live_root" "$diff_dir" || status=1
+      compare_live_tree "current-workspace/tools" "tools" "$live_root" "$diff_dir" "tools" || status=1
+      compare_live_tree "agent-skills/skills" "agent-skills/skills" "$live_root" "$diff_dir" "none" || status=1
+      compare_live_tree "agent-skills/skills" ".claude/skills" "$live_root" "$diff_dir" "skill-mirror" || status=1
+      compare_live_tree "agent-skills/skills" ".agents/skills" "$live_root" "$diff_dir" "skill-mirror" || status=1
+    fi
     echo
 
     echo "## Follow-Up Validation"
@@ -408,6 +585,7 @@ case "$cmd" in
 - git diff --check origin/main..HEAD
 - ./tools/check-sensitive-content .
 - ./tools/knowledgectl lint
+- ./tools/renderctl dry-run --mode live-check (pre/post activation drift check; may be nonzero before activation)
 - SKILLCTL_CANONICAL_DIR=/workspace/workspace-control/agent-skills/skills /workspace/tools/skills/skillctl validate
 - SKILLCTL_CANONICAL_DIR=<generated-root>/agent-skills/skills /workspace/tools/skills/skillctl validate
 COMMANDS

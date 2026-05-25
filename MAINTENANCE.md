@@ -76,6 +76,15 @@ caused them.
 Before pushing local commits, run the outbound range check against the remote
 branch, for example `git diff --check origin/main..HEAD`.
 
+Before or after a live activation, run the read-only drift check:
+
+```bash
+./tools/renderctl dry-run --mode live-check
+```
+
+This may return nonzero while reviewed repo changes are intentionally not live.
+Use the reported diffs to scope the activation or rollback delta.
+
 ## Skill Sync
 
 Shared skills should stay provider-neutral and should be edited in this repo

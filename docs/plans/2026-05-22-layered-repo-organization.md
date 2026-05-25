@@ -132,3 +132,12 @@ SKILLCTL_CANONICAL_DIR=/workspace/workspace-control/agent-skills/skills /workspa
 ```
 
 If generated files are introduced, add dry-run diff checks before committing.
+
+Before or after live activation, run:
+
+```bash
+./tools/renderctl dry-run --mode live-check
+```
+
+This command is read-only and may report differences while repo changes are
+approved but not yet activated.

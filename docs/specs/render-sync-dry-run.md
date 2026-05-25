@@ -11,6 +11,10 @@ outputs can be compared against the current checked-in sources. The dry-run
 tool gives us that gate before moving skills, instructions, tools, or provider
 adapter files.
 
+`live-check` is separate from the default render check. It compares reviewed
+repo outputs against the actual `/workspace` runtime targets and may fail while
+repo changes are intentionally not activated.
+
 ## Current Behavior
 
 `tools/renderctl dry-run` defaults to `--mode all`, which renders the
@@ -48,6 +52,17 @@ Provider mode:
 | `providers/codex/config/codex.config.toml` | `current-workspace/config/codex.config.toml` | provider adapter |
 | `providers/pi/config/settings.example.json` | `.pi/settings.example.json` | provider adapter |
 
+Live-check mode:
+
+| Repo Source | Live Target | Notes |
+|---|---|---|
+| `current-workspace/AGENTS.md` | `/workspace/AGENTS.md` | Thin shared contract |
+| `current-workspace/CLAUDE.md` | `/workspace/CLAUDE.md` | Claude wrapper |
+| `current-workspace/tools/` | `/workspace/tools/` | Excludes runtime bytecode/cache |
+| `agent-skills/skills/` | `/workspace/agent-skills/skills/` | Canonical live skills |
+| `agent-skills/skills/` | `/workspace/.claude/skills/` | Excludes `.skillctl-managed` mirror metadata |
+| `agent-skills/skills/` | `/workspace/.agents/skills/` | Excludes `.skillctl-managed` mirror metadata |
+
 The command prints:
 
 - selected sources,
@@ -69,6 +84,9 @@ By default the generated tree is temporary and removed after a clean run. Use
 - Do not activate Pi.
 - Do not render `.pi/settings.json`; it remains a checked draft runtime file,
   not an activation target.
+- Do not treat a nonzero `live-check` as a failure by itself when the repo has
+  approved-but-not-activated changes. Use it to identify the exact activation
+  delta.
 
 ## Promotion Gate
 
@@ -94,9 +112,6 @@ Implemented modes:
   rendered into `agent-skills/skills/`.
 - `providers`: Claude/Codex config examples and the Pi settings example
   rendered into their current compatibility targets.
-
-The next implementation slices can add explicit modes such as:
-
 - `live-check`: read-only comparison between repo compatibility outputs and
   live `/workspace` targets.
 

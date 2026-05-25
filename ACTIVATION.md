@@ -31,9 +31,14 @@
 4. Review `git diff --stat` and `git diff`.
 5. Commit in `workspace-control`.
 6. Run `git show --check --oneline HEAD` and, before pushing, `git diff --check origin/main..HEAD`.
-7. If activating skills, sync reviewed files into `/workspace/agent-skills/skills/`.
-8. Run `/workspace/tools/skills/skillctl validate`.
-9. Run `/workspace/tools/skills/skillctl sync`.
-10. Record the activation in `docs/decisions/`.
+7. Run `tools/renderctl dry-run --mode live-check` to identify the exact live
+   delta. A nonzero result is expected when reviewed repo changes are not yet
+   live.
+8. If activating skills, sync reviewed files into `/workspace/agent-skills/skills/`.
+9. Run `/workspace/tools/skills/skillctl validate`.
+10. Run `/workspace/tools/skills/skillctl sync`.
+11. Run `tools/renderctl dry-run --mode live-check` again to verify post-sync
+    drift.
+12. Record the activation in `docs/decisions/`.
 
 See `MAINTENANCE.md` for the recurring upkeep workflow after activation.

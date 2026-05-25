@@ -196,6 +196,11 @@ The conservative first gate is `tools/renderctl dry-run`, described in
 `docs/specs/render-sync-dry-run.md`. It now checks the compatibility tree and
 the draft instruction, skill, and provider-adapter composition.
 
+Use `tools/renderctl dry-run --mode live-check` as a read-only pre/post
+activation drift check against `/workspace`. It is intentionally separate from
+the default `all` mode because repo changes can be reviewed and committed
+before they are activated live.
+
 ## Provider Notes
 
 Claude:
