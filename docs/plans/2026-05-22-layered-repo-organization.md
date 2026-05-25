@@ -51,11 +51,12 @@ No canonical source moves.
 Design a deterministic render path. The first conservative command is
 `tools/renderctl dry-run`, which proves the current compatibility outputs can
 be regenerated from existing compatibility sources before any canonical moves.
+It now also supports instruction composition from draft layered inputs.
 
 Target future render path:
 
 ```text
-core + workspace overlay + provider adapter -> current-workspace outputs
+core + workspace overlay + activation references -> current-workspace/AGENTS.md
 core skills + workspace skills -> agent-skills/skills
 provider adapter -> provider mirrors/config examples
 ```

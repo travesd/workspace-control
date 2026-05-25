@@ -189,9 +189,9 @@ Do not make the layered layout live until:
 5. Pi remains excluded unless the user explicitly starts the Pi path.
 
 The conservative first gate is `tools/renderctl dry-run`, described in
-`docs/specs/render-sync-dry-run.md`. It currently renders from compatibility
-sources only; future modes can add `core` plus workspace overlay composition
-after clean diffs exist.
+`docs/specs/render-sync-dry-run.md`. It now checks the compatibility tree and
+the draft instruction composition. Future modes can add skills and provider
+adapter composition after clean diffs exist.
 
 ## Provider Notes
 

@@ -11,14 +11,14 @@ fi
 usage() {
   cat <<'USAGE'
 usage:
-  tools/renderctl dry-run [--out <dir>] [--keep]
+  tools/renderctl dry-run [--mode all|compatibility|instructions] [--out <dir>] [--keep]
 
 Render the current workspace-control compatibility outputs into a generated
 tree and diff them against the checked-in live-compatible sources.
 
-This is intentionally conservative. Until layered render rules are approved,
-the dry-run uses current-workspace/ and agent-skills/skills/ as the selected
-sources and proves that generated compatibility outputs remain clean.
+This is intentionally conservative. The default mode checks both the current
+compatibility copy and the draft instruction composition. It never writes to the
+live workspace.
 USAGE
 }
 
@@ -84,15 +84,94 @@ compare_tree() {
   return "$status"
 }
 
+compare_file() {
+  local target_rel="$1"
+  local generated_root="$2"
+  local diff_dir="$3"
+  local diff_file="$diff_dir/${target_rel//\//__}.diff"
+  local meta_current="$diff_dir/${target_rel//\//__}.current-metadata"
+  local meta_generated="$diff_dir/${target_rel//\//__}.generated-metadata"
+  local status=0
+
+  if diff -u "$ROOT/$target_rel" "$generated_root/$target_rel" >"$diff_file"; then
+    rm -f "$diff_file"
+    printf -- "- %s content: clean\n" "$target_rel"
+  else
+    printf -- "- %s content: differs (diff: %s)\n" "$target_rel" "$diff_file"
+    sed -n '1,200p' "$diff_file"
+    status=1
+  fi
+
+  stat -c '%a' "$ROOT/$target_rel" >"$meta_current"
+  stat -c '%a' "$generated_root/$target_rel" >"$meta_generated"
+
+  if diff -u "$meta_current" "$meta_generated" >"$diff_file.metadata"; then
+    rm -f "$meta_current" "$meta_generated" "$diff_file.metadata"
+    printf -- "- %s metadata: clean\n" "$target_rel"
+  else
+    printf -- "- %s metadata: differs (diff: %s)\n" "$target_rel" "$diff_file.metadata"
+    sed -n '1,200p' "$diff_file.metadata"
+    status=1
+  fi
+
+  return "$status"
+}
+
+append_instruction_fragments() {
+  local generated_root="$1"
+  local manifest="$2"
+  local target_rel="current-workspace/AGENTS.md"
+  local target="$generated_root/$target_rel"
+  local source
+  local first=1
+  local fragments=(
+    "core/AGENTS.contract.md"
+    "workspaces/detection-platform-metal/AGENTS.overlay.md"
+    "workspaces/detection-platform-metal/AGENTS.references.md"
+  )
+
+  mkdir -p "$(dirname "$target")"
+  : >"$target"
+  for source in "${fragments[@]}"; do
+    if [ ! -f "$ROOT/$source" ]; then
+      echo "missing instruction source: $source" >&2
+      return 1
+    fi
+    if [ "$first" -eq 0 ]; then
+      printf '\n' >>"$target"
+    fi
+    cat "$ROOT/$source" >>"$target"
+    first=0
+    printf '%s\t%s\tinstruction-fragment\n' "$source" "$target_rel" >>"$manifest"
+  done
+  chmod --reference="$ROOT/$target_rel" "$target"
+}
+
 cmd="${1:-}"
 case "$cmd" in
   dry-run)
     shift
     out_dir=""
     keep=0
+    mode="all"
 
     while [ "$#" -gt 0 ]; do
       case "$1" in
+        --mode)
+          if [ "$#" -lt 2 ]; then
+            echo "--mode requires all, compatibility, or instructions" >&2
+            exit 2
+          fi
+          mode="$2"
+          case "$mode" in
+            all|compatibility|instructions) ;;
+            *)
+              echo "--mode requires all, compatibility, or instructions" >&2
+              exit 2
+              ;;
+          esac
+          shift 2
+          ;;
         --out)
           if [ "$#" -lt 2 ]; then
             echo "--out requires a directory" >&2
@@ -140,38 +219,62 @@ case "$cmd" in
 
     {
       printf 'source\ttarget\tmode\n'
-      printf 'current-workspace\tcurrent-workspace\tcompatibility-copy\n'
-      printf 'agent-skills/skills\tagent-skills/skills\tcompatibility-copy\n'
     } >"$manifest"
 
-    copy_tree "current-workspace" "current-workspace" "$generated_root"
-    copy_tree "agent-skills/skills" "agent-skills/skills" "$generated_root"
+    if [ "$mode" = "all" ] || [ "$mode" = "compatibility" ]; then
+      printf 'current-workspace\tcurrent-workspace\tcompatibility-copy\n' >>"$manifest"
+      printf 'agent-skills/skills\tagent-skills/skills\tcompatibility-copy\n' >>"$manifest"
+      copy_tree "current-workspace" "current-workspace" "$generated_root"
+      copy_tree "agent-skills/skills" "agent-skills/skills" "$generated_root"
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "instructions" ]; then
+      append_instruction_fragments "$generated_root" "$manifest"
+    fi
 
     echo "# Render Dry Run"
     echo "Root: $ROOT"
-    echo "Mode: compatibility-source"
+    echo "Mode: $mode"
     echo "Generated root: $generated_root"
     echo "Manifest: $manifest"
     echo
 
     echo "## Selected Sources"
-    echo "- current-workspace/ -> current-workspace/"
-    echo "- agent-skills/skills/ -> agent-skills/skills/"
+    if [ "$mode" = "all" ] || [ "$mode" = "compatibility" ]; then
+      echo "- current-workspace/ -> current-workspace/"
+      echo "- agent-skills/skills/ -> agent-skills/skills/"
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "instructions" ]; then
+      echo "- core/AGENTS.contract.md -> current-workspace/AGENTS.md"
+      echo "- workspaces/detection-platform-metal/AGENTS.overlay.md -> current-workspace/AGENTS.md"
+      echo "- workspaces/detection-platform-metal/AGENTS.references.md -> current-workspace/AGENTS.md"
+    fi
     echo
 
     echo "## Source Files"
-    while IFS= read -r file; do
-      printf -- "- current-workspace/%s\n" "$file"
-    done < <(rel_files "current-workspace")
-    while IFS= read -r file; do
-      printf -- "- agent-skills/skills/%s\n" "$file"
-    done < <(rel_files "agent-skills/skills")
+    if [ "$mode" = "all" ] || [ "$mode" = "compatibility" ]; then
+      while IFS= read -r file; do
+        printf -- "- current-workspace/%s\n" "$file"
+      done < <(rel_files "current-workspace")
+      while IFS= read -r file; do
+        printf -- "- agent-skills/skills/%s\n" "$file"
+      done < <(rel_files "agent-skills/skills")
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "instructions" ]; then
+      echo "- core/AGENTS.contract.md"
+      echo "- workspaces/detection-platform-metal/AGENTS.overlay.md"
+      echo "- workspaces/detection-platform-metal/AGENTS.references.md"
+    fi
     echo
 
     echo "## Target Diffs"
     status=0
-    compare_tree "current-workspace" "$generated_root" "$diff_dir" || status=1
-    compare_tree "agent-skills/skills" "$generated_root" "$diff_dir" || status=1
+    if [ "$mode" = "all" ] || [ "$mode" = "compatibility" ]; then
+      compare_tree "current-workspace" "$generated_root" "$diff_dir" || status=1
+      compare_tree "agent-skills/skills" "$generated_root" "$diff_dir" || status=1
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "instructions" ]; then
+      compare_file "current-workspace/AGENTS.md" "$generated_root" "$diff_dir" || status=1
+    fi
     echo
 
     echo "## Follow-Up Validation"

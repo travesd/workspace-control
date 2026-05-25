@@ -1,6 +1,6 @@
 # Render/Sync Dry-Run
 
-Status: first conservative implementation; no canonical moves
+Status: conservative implementation; no canonical moves
 
 Date: 2026-05-22
 
@@ -13,13 +13,23 @@ adapter files.
 
 ## Current Behavior
 
-`tools/renderctl dry-run` renders a generated tree from the current
-live-compatible sources:
+`tools/renderctl dry-run` defaults to `--mode all`, which renders both the
+compatibility tree and the draft instruction composition.
+
+Compatibility mode:
 
 | Selected Source | Generated Target | Mode |
 |---|---|---|
 | `current-workspace/` | `current-workspace/` | compatibility copy |
 | `agent-skills/skills/` | `agent-skills/skills/` | compatibility copy |
+
+Instruction mode:
+
+| Selected Source | Generated Target | Mode |
+|---|---|---|
+| `core/AGENTS.contract.md` | `current-workspace/AGENTS.md` | instruction fragment |
+| `workspaces/detection-platform-metal/AGENTS.overlay.md` | `current-workspace/AGENTS.md` | instruction fragment |
+| `workspaces/detection-platform-metal/AGENTS.references.md` | `current-workspace/AGENTS.md` | instruction fragment |
 
 The command prints:
 
@@ -36,7 +46,7 @@ By default the generated tree is temporary and removed after a clean run. Use
 
 ## Non-Goals
 
-- Do not compose from `core/`, `workspaces/`, or `providers/` yet.
+- Do not treat draft render inputs as canonical until activation is approved.
 - Do not write to live `/workspace`.
 - Do not sync provider mirrors.
 - Do not activate Pi.
@@ -54,10 +64,13 @@ Before any canonical source move, the render path must prove:
 
 ## Future Render Modes
 
-The next implementation slices can add explicit modes such as:
+Implemented modes:
 
 - `instructions`: `core` contract plus workspace overlay plus activation
-  reference rendered into `current-workspace/AGENTS.md`,
+  reference rendered into `current-workspace/AGENTS.md`.
+
+The next implementation slices can add explicit modes such as:
+
 - `skills`: portable core skills plus workspace overlay skills rendered into
   `agent-skills/skills/`,
 - `provider`: provider adapters rendered into Claude/Codex/Pi config examples,
