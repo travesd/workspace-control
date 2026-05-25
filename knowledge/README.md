@@ -1,8 +1,13 @@
 # Knowledge Notes
 
-This directory stores provider-neutral durable workspace learnings. It is for facts, gotchas, methods, and decision pointers that should be lookupable by Claude, Codex, and future harnesses without relying on provider-local memory.
+This directory stores provider-neutral durable workspace operating-model
+learnings. It is for agent workflow facts, gotchas, methods, and decision
+pointers that should be lookupable by Claude, Codex, and future harnesses
+without relying on provider-local memory.
 
-Raw provider memory exports, transcripts, secrets, task artifacts, datasets, screenshots, and backups do not belong here.
+Raw provider memory exports, transcripts, secrets, task artifacts, datasets,
+screenshots, backups, product-release facts, incident findings, and ordinary
+product facts do not belong here.
 
 ## Lookup Order
 
@@ -17,7 +22,11 @@ Do not load the whole knowledge tree at session start.
 ## Promotion Rules
 
 - One-off details stay in task `notes.md` or `SUMMARY.md`.
-- Reusable facts, gotchas, and methods become `knowledge/*.md`.
+- Reusable workspace/agent workflow facts, gotchas, and methods become
+  `knowledge/*.md`.
+- Product, release, incident, and service-specific facts stay in task
+  summaries, product docs, dataset manifests, or the product repo unless they
+  change how agents should operate the workspace.
 - Repeatable multi-step procedures become shared skills under `agent-skills/skills/`.
 - Stable workspace-wide safety or execution rules become `AGENTS.md` only after explicit review.
 - Dataset-specific truths belong in dataset manifests, with a knowledge note only when the lesson affects broader workflow.

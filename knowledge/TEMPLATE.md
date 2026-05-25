@@ -11,7 +11,7 @@ re_verify_when: "Before automating, promoting to AGENTS.md, or after related too
 
 # Short Human Title
 
-One-paragraph durable learning.
+One-paragraph durable workspace operating-model or agent workflow learning.
 
 ## Applies When
 

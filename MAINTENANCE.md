@@ -7,11 +7,11 @@ or provider-local state drift into Git.
 ## When To Update This Repo
 
 Update `/workspace/workspace-control` when a change is meant to be reusable
-beyond one task:
+workspace operating-model knowledge, not just reusable product knowledge:
 
 - workspace-wide rules or path conventions change,
 - shared Agent Skills change,
-- durable knowledge notes are added or corrected,
+- durable workspace/agent workflow knowledge notes are added or corrected,
 - helper scripts under `tools/` change,
 - task lifecycle definitions or templates change,
 - task resumability scoring or note templates change,
@@ -19,7 +19,8 @@ beyond one task:
 - activation, rollback, or provider-practice docs change.
 
 Do not update this repo for ordinary task notes, screenshots, datasets,
-backups, product worktrees, provider transcripts, or one-off local stack output.
+backups, product worktrees, provider transcripts, one-off local stack output,
+or product/release facts that belong in task summaries or product docs.
 
 ## Source-Of-Truth Direction
 
@@ -119,7 +120,8 @@ Keep always-loaded instructions thin.
 
 ## Knowledge Sync
 
-Use durable knowledge for reusable facts and gotchas, not raw research dumps.
+Use durable knowledge for reusable workspace operating-model facts and agent
+workflow gotchas, not raw research dumps or product-release facts.
 
 ```bash
 ./tools/knowledgectl search <term>
@@ -129,6 +131,10 @@ Use durable knowledge for reusable facts and gotchas, not raw research dumps.
 
 Set `re_verify_when` on notes whose facts can become stale, and prefer links to
 task summaries, manifests, or source docs over pasted raw transcript content.
+
+Product, release, incident, and service-specific findings stay in the task
+summary, product docs, dataset manifests, or the product repo unless the finding
+changes how agents should operate this workspace.
 
 ## Resumability Review
 

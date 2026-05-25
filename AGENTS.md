@@ -15,7 +15,10 @@ This repo is for workspace operating-model documentation and harness configurati
 - Use ADRs in `docs/decisions/` for durable process decisions.
 - Use `docs/specs/task-resumability.md` for task note, handoff, and recovery
   standards; keep only pointers in always-loaded workspace instructions.
-- Keep `knowledge/` notes short, sourced, tagged, and dated. Include when to re-verify facts that can drift.
+- Keep `knowledge/` limited to workspace operating-model and agent workflow
+  learnings. Product, release, incident, or task-specific facts belong in their
+  task summary, product docs, dataset manifests, or the product repo unless
+  they change how agents operate the workspace.
 
 ## Validation
 
