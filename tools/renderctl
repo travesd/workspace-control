@@ -324,6 +324,7 @@ copy_provider_file() {
   local target_rel="$2"
   local generated_root="$3"
   local manifest="$4"
+  local render_mode="${5:-provider-adapter}"
 
   if [ ! -f "$ROOT/$source_rel" ]; then
     echo "missing provider source: $source_rel" >&2
@@ -336,7 +337,7 @@ copy_provider_file() {
 
   mkdir -p "$generated_root/$(dirname "$target_rel")"
   cp -a "$ROOT/$source_rel" "$generated_root/$target_rel"
-  printf '%s\t%s\tprovider-adapter\n' "$source_rel" "$target_rel" >>"$manifest"
+  printf '%s\t%s\t%s\n' "$source_rel" "$target_rel" "$render_mode" >>"$manifest"
 }
 
 render_provider_adapters() {
@@ -363,6 +364,18 @@ render_provider_adapters() {
     ".pi/settings.example.json" \
     "$generated_root" \
     "$manifest"
+  copy_provider_file \
+    "providers/claude/references/call-a-friend-commands.md" \
+    "providers/claude/references/call-a-friend-commands.md" \
+    "$generated_root" \
+    "$manifest" \
+    "provider-reference"
+  copy_provider_file \
+    "providers/codex/references/call-a-friend-commands.md" \
+    "providers/codex/references/call-a-friend-commands.md" \
+    "$generated_root" \
+    "$manifest" \
+    "provider-reference"
 }
 
 cmd="${1:-}"
@@ -496,6 +509,8 @@ case "$cmd" in
       echo "- providers/claude/config/mcp.json -> current-workspace/config/mcp.json"
       echo "- providers/codex/config/codex.config.toml -> current-workspace/config/codex.config.toml"
       echo "- providers/pi/config/settings.example.json -> .pi/settings.example.json"
+      echo "- providers/claude/references/call-a-friend-commands.md -> providers/claude/references/call-a-friend-commands.md"
+      echo "- providers/codex/references/call-a-friend-commands.md -> providers/codex/references/call-a-friend-commands.md"
     fi
     if [ "$mode" = "live-check" ]; then
       echo "- current-workspace/AGENTS.md -> $live_root/AGENTS.md"
@@ -534,6 +549,8 @@ case "$cmd" in
       echo "- providers/claude/config/mcp.json"
       echo "- providers/codex/config/codex.config.toml"
       echo "- providers/pi/config/settings.example.json"
+      echo "- providers/claude/references/call-a-friend-commands.md"
+      echo "- providers/codex/references/call-a-friend-commands.md"
     fi
     if [ "$mode" = "live-check" ]; then
       echo "- current-workspace/AGENTS.md"
@@ -566,6 +583,8 @@ case "$cmd" in
       compare_file "current-workspace/config/mcp.json" "$generated_root" "$diff_dir" || status=1
       compare_file "current-workspace/config/codex.config.toml" "$generated_root" "$diff_dir" || status=1
       compare_file ".pi/settings.example.json" "$generated_root" "$diff_dir" || status=1
+      compare_file "providers/claude/references/call-a-friend-commands.md" "$generated_root" "$diff_dir" || status=1
+      compare_file "providers/codex/references/call-a-friend-commands.md" "$generated_root" "$diff_dir" || status=1
     fi
     if [ "$mode" = "live-check" ]; then
       compare_live_file "current-workspace/AGENTS.md" "AGENTS.md" "$live_root" "$diff_dir" || status=1

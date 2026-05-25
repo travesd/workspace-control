@@ -30,6 +30,10 @@ Parameterization started with the near-portable review and knowledge skills:
 paths, commands, and activation boundaries instead of embedding workspace
 values directly.
 
+`call-a-friend` keeps the portable coordination workflow in core. Provider CLI
+examples live under `providers/<provider>/references/` rather than inside the
+shared skill.
+
 Template:
 `core/templates/skill-parameter-map.md`
 

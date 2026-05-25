@@ -51,6 +51,8 @@ Provider mode:
 | `providers/claude/config/mcp.json` | `current-workspace/config/mcp.json` | provider adapter |
 | `providers/codex/config/codex.config.toml` | `current-workspace/config/codex.config.toml` | provider adapter |
 | `providers/pi/config/settings.example.json` | `.pi/settings.example.json` | provider adapter |
+| `providers/claude/references/call-a-friend-commands.md` | `providers/claude/references/call-a-friend-commands.md` | provider reference |
+| `providers/codex/references/call-a-friend-commands.md` | `providers/codex/references/call-a-friend-commands.md` | provider reference |
 
 Live-check mode:
 
@@ -110,8 +112,8 @@ Implemented modes:
   reference rendered into `current-workspace/AGENTS.md`.
 - `skills`: draft core skill copies plus draft detection overlay skill copies
   rendered into `agent-skills/skills/`.
-- `providers`: Claude/Codex config examples and the Pi settings example
-  rendered into their current compatibility targets.
+- `providers`: Claude/Codex config examples, the Pi settings example, and
+  provider references rendered into their current compatibility targets.
 - `live-check`: read-only comparison between repo compatibility outputs and
   live `/workspace` targets.
 

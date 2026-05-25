@@ -11,10 +11,14 @@ Current live-compatible source:
   `current-workspace/config/mcp.json`
 - `/workspace/.claude/skills/` generated from canonical shared skills
 
+Adapter references:
+
+- `providers/claude/references/call-a-friend-commands.md`
+
 Future responsibilities:
 
 - Keep Claude-specific import/wrapper behavior here.
-- Document Claude CLI command caveats that are not portable.
+- Document Claude-side provider command caveats that are not portable.
 - Do not duplicate core or detection-platform-metal policy here.
 
 Validation:

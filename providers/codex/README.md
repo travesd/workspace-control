@@ -9,6 +9,10 @@ Current live-compatible Codex-specific source:
   `current-workspace/config/codex.config.toml`
 - `/workspace/.agents/skills/` generated from canonical shared skills
 
+Adapter references:
+
+- `providers/codex/references/call-a-friend-commands.md`
+
 Shared input:
 
 - `current-workspace/AGENTS.md` is the provider-neutral workspace contract, not
@@ -18,7 +22,7 @@ Future responsibilities:
 
 - Map workspace profiles to Codex custom agents only after review.
 - Keep project-scoped config free of machine-local auth/provider settings.
-- Document Codex-specific command or review modes.
+- Document Codex-side provider command or review modes.
 - Do not duplicate core or detection-platform-metal policy here.
 
 Validation:

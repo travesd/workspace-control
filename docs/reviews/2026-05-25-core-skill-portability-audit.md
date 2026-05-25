@@ -9,6 +9,10 @@ Update: 2026-05-25 portability cleanup started for the near-portable review
 and knowledge skills. See `core/templates/skill-parameter-map.md` and
 `workspaces/detection-platform-metal/specs/core-skill-parameter-map.md`.
 
+Update: 2026-05-25 provider command examples were split out of the portable
+`call-a-friend` skill into provider adapter references under
+`providers/claude/references/` and `providers/codex/references/`.
+
 ## Summary
 
 The skill render path is mechanically clean: draft skill copies under
@@ -43,7 +47,7 @@ SKILLCTL_CANONICAL_DIR=<generated>/agent-skills/skills /workspace/tools/skills/s
 | Skill | Current Portability | Notes |
 |---|---|---|
 | `agents-md-review` | Parameterized | Now uses local instruction, knowledge, and decision-record locations from the local parameter map or workspace instructions. |
-| `call-a-friend` | Split required | The core workflow is reusable, but provider command examples are Claude/Codex-specific and should move under provider adapters or provider references before this is true core. Mentions worktrees, active tmux panes, and live activation guardrails. |
+| `call-a-friend` | Provider commands split | Core workflow is now provider-neutral; Claude/Codex command examples live in provider adapter references. |
 | `durable-learning-capture` | Parameterized | Now routes by durable-home category and asks for the local parameter map before writing global files. |
 | `research-to-knowledge` | Parameterized | Now references local guardrails and durable homes without embedding detection-platform-metal policy examples. |
 | `session-hygiene` | Workspace overlay | Depends on `/workspace/detection-platform-metal-work/`, `/workspace/tools/agents/sessionctl`, tmux, Claude/Codex launch helpers, and task-resumability paths. The portable core should be a generic resume/session-record pattern. |
@@ -67,7 +71,7 @@ SKILLCTL_CANONICAL_DIR=<generated>/agent-skills/skills /workspace/tools/skills/s
    - `research-to-knowledge` (done).
 3. Split provider-specific command details:
    - move `call-a-friend` provider commands into `providers/claude/` and
-     `providers/codex/` mappings or provider references.
+     `providers/codex/` mappings or provider references (done).
 4. Keep operational detection implementations under
    `workspaces/detection-platform-metal/skills/` until generalized:
    - `session-hygiene`,
