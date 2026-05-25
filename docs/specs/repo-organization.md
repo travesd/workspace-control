@@ -94,6 +94,7 @@ workspace-control/
 
   docs/
     decisions/
+    drafts/
     plans/
     reference/
     research/
@@ -110,6 +111,17 @@ workspace-control/
 The first migration slice should add directories and source maps only. Moving
 canonical files should wait for a render/sync plan that proves generated
 outputs match the current live behavior.
+
+## Drafts
+
+Use `docs/drafts/` for proposed skills, overlays, activation plans, or workflow
+changes that should be versioned but must not enter the live-compatible hot
+path yet.
+
+Drafts are not activation inputs. Do not copy a draft into `agent-skills/`,
+`current-workspace/`, `core/`, `workspaces/`, provider adapters, or live
+`/workspace` paths until a later promotion task explicitly approves it and
+runs the normal render, validation, sync, and rollback checks.
 
 ## Skill Split
 
