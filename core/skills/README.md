@@ -23,3 +23,6 @@ Several current `SKILL.md` files above still contain `/workspace` paths or
 detection-platform-metal assumptions. Those need parameterization or a split
 between portable core instructions and workspace-specific references before
 they become true core skills.
+
+Portability audit:
+`docs/reviews/2026-05-25-core-skill-portability-audit.md`

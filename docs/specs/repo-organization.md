@@ -140,6 +140,9 @@ them into:
 - a detection-platform-metal reference or implementation under
   `workspaces/detection-platform-metal/skills/`.
 
+Current portability audit:
+`docs/reviews/2026-05-25-core-skill-portability-audit.md`
+
 ## Instruction Split
 
 The live `/workspace/AGENTS.md` should eventually be rendered from:
