@@ -1,7 +1,9 @@
 ---
 title: Workspace organization and efficiency review
+type: workflow
 tags: [workspace, organization, skills, knowledge, pi]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: /workspace/detection-platform-metal-work/investigations/workspace-organization-efficiency-20260520/recommendations.md
 re_verify_when: "After workspace-control repo first implementation slice or Pi pilot changes"

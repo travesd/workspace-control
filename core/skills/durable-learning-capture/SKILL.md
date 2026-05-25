@@ -17,13 +17,17 @@ surfaces a durable pattern.
    output, data manifests, decision records, or explicit user decisions.
 3. Choose and record the durable home:
    - Task-only detail: task notes, resume packet, or closeout summary.
-   - Reusable fact, method, gotcha, or principle: local knowledge note.
+   - Reusable operating-model fact, method, gotcha, or principle: local
+     workspace-control knowledge note.
+   - Workspace/product-adjacent fact without a narrower home yet: local
+     workspace knowledge note.
    - Repeatable multi-step procedure: shared skill or workflow reference.
    - Always-on safety or operating rule: local agent instruction contract.
    - Data-specific fact: data manifest, snapshot note, or evidence manifest.
    - Operating-model decision: decision record.
 4. For knowledge notes, use the local note template and lint/index command when
-   available.
+   available; when several knowledge homes exist, choose the narrowest one from
+   the local parameter map.
 5. If promoting migrated memory, require fresh evidence before changing automation, shared skills, or global rules.
 6. If promoting to a shared skill, follow the local skill-maintainer workflow.
    Do not sync to live provider mirrors unless a separate activation task

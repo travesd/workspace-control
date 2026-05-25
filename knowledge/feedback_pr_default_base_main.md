@@ -1,8 +1,10 @@
 ---
 title: "PRs target main in detection-platform-metal"
 description: "In phishfort/detection-platform-metal the default base for PRs is `main`. Pass `--base main` explicitly to avoid legacy defaults leaking in from gh config or past sessions."
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: repo
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

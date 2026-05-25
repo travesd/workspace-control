@@ -1,7 +1,8 @@
 # Workspace Knowledge Source Migration Plan
 
 Date: 2026-05-25
-Status: proposed, not implemented
+Status: implemented in repo; workspace-level note copies created under
+`/workspace/detection-platform-metal-work/knowledge/`
 
 ## Objective
 
@@ -186,17 +187,29 @@ or product documentation path is recorded.
 - Do not edit product repo docs until a product-doc destination is deliberately
   selected.
 
-## Open Questions
+## Implementation Notes
 
-- Should workspace-level knowledge live at
-  `/workspace/detection-platform-metal-work/knowledge/` or `/workspace/knowledge/`?
-  The work-dir path keeps it scoped to detection-platform-metal; `/workspace`
-  would be broader than the current sandbox.
-- Should moved notes leave pointer files in `workspace-control/knowledge/`, or
-  should references be updated without redirects?
-- Should product-specific notes first move to workspace-level knowledge, then
-  be promoted to product docs later, or should product-doc migration happen in
-  the same pass?
+- Workspace-level knowledge home selected:
+  `/workspace/detection-platform-metal-work/knowledge/`.
+- Moved notes leave superseded pointer files in
+  `/workspace/workspace-control/knowledge/` for one transition cycle.
+- Product-specific notes were preserved as workspace-level knowledge with
+  `status: under-review` until a deliberate product-doc destination is chosen.
+- Dataset note preservation points at
+  `/workspace/datasets/curated-impersonation-70sample/MANIFEST.json` as the
+  canonical dataset fact source.
+- `tools/knowledgectl` supports `KNOWLEDGE_DIR=/path/to/knowledge` for
+  linting, indexing, stale checks, and search across the selected tree.
+
+## Resolved Questions
+
+- Workspace-level knowledge lives at
+  `/workspace/detection-platform-metal-work/knowledge/`, keeping it scoped to
+  this sandbox.
+- Moved notes leave pointer files because older task summaries and provider
+  memory may still reference the old paths.
+- Product-specific notes first move to workspace-level knowledge and remain
+  under review. Product-doc promotion is a separate decision.
 
 ## Recommendation
 

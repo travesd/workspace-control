@@ -1,17 +1,23 @@
 ---
 title: "atlas.sum is auto-regenerated — don't flag it"
-description: "atlas.sum is regenerated during Docker image build; stale atlas.sum in git doesn't break migrations"
-tags: [feedback, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: repo
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/feedback_atlas_sum.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-**Never flag atlas.sum as a blocker or action item when adding migrations.**
+# atlas.sum is auto-regenerated — don't flag it
 
-The atlas-migrate-hook Dockerfile runs `atlas migrate hash --dir file:///migrations` which regenerates atlas.sum from the actual .sql files during every image build. No CI step validates it, the application doesn't check it, and `atlas migrate apply` at deployment uses the regenerated version inside the container.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
 
-**Why:** Investigation on 2026-04-07 confirmed: atlas.sum is hygiene only, not a migration blocker. The Docker build always fixes it. Flagging it creates false urgency and annoys the user.
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/feedback_atlas_sum.md`
 
-**How to apply:** When adding migration .sql files, just create the .sql file. Don't touch atlas.sum, don't mention it needs updating, don't add caveats about CI handling it. It's a non-issue.
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
+
+Reason: Repo-specific generated-file guidance belongs outside workspace-control.

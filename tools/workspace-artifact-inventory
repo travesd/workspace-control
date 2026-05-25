@@ -28,6 +28,26 @@ count_state() {
   fi
 }
 
+print_knowledge_inventory() {
+  local label="$1"
+  local dir="$2"
+  echo "## $label"
+  if [ -d "$dir" ]; then
+    echo "- notes: $(find "$dir" -maxdepth 1 -type f -name '*.md' ! -name INDEX.md ! -name README.md ! -name TEMPLATE.md | wc -l)"
+    if [ -x "$CONTROL_ROOT/tools/knowledgectl" ]; then
+      KNOWLEDGE_DIR="$dir" "$CONTROL_ROOT/tools/knowledgectl" stale | tail -n 1 | sed 's/^/- /'
+      if KNOWLEDGE_DIR="$dir" "$CONTROL_ROOT/tools/knowledgectl" index --check >/dev/null 2>&1; then
+        echo "- generated index: fresh"
+      else
+        echo "- generated index: stale"
+      fi
+    fi
+  else
+    echo "- unavailable: $dir"
+  fi
+  echo
+}
+
 echo "# Workspace Artifact Inventory"
 date -u +"Generated: %Y-%m-%d %H:%M:%SZ"
 echo
@@ -70,19 +90,8 @@ if [ -d "$CONTROL_ROOT/agent-skills/skills" ]; then
 fi
 echo
 
-echo "## Workspace-Control Knowledge"
-if [ -d "$CONTROL_ROOT/knowledge" ]; then
-  echo "- notes: $(find "$CONTROL_ROOT/knowledge" -maxdepth 1 -type f -name '*.md' ! -name INDEX.md ! -name README.md ! -name TEMPLATE.md | wc -l)"
-  if [ -x "$CONTROL_ROOT/tools/knowledgectl" ]; then
-    "$CONTROL_ROOT/tools/knowledgectl" stale | tail -n 1 | sed 's/^/- /'
-    if "$CONTROL_ROOT/tools/knowledgectl" index --check >/dev/null 2>&1; then
-      echo "- generated index: fresh"
-    else
-      echo "- generated index: stale"
-    fi
-  fi
-fi
-echo
+print_knowledge_inventory "Workspace-Control Knowledge" "$CONTROL_ROOT/knowledge"
+print_knowledge_inventory "Detection-Platform-Metal Workspace Knowledge" "$WORK_ROOT/knowledge"
 
 echo "## Large Busy Task Dirs"
 if [ -d "$WORK_ROOT/busy" ]; then

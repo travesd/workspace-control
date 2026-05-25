@@ -1,21 +1,23 @@
 ---
 title: "Pattern recognition framework"
-description: "Multi-signal pattern recognition framework on metal — umbrella concept, per-signal slicing, where curated-library matching belongs vs single-incident classifiers"
-tags: [project, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: service
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/project_pattern_recognition_framework.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-Pattern recognition is metal's umbrella for "match incoming evidence against a curated, vetted library and produce a structured identification." Three issues span the framework:
+# Pattern recognition framework
 
-- **Umbrella + ssdeep matcher**: [Issue #10](https://github.com/phishfort/detection-platform-metal/issues/10) — `PatternRecognition` field on `Incident`; per-incident-type evaluation layers (`HTTPReq`, `DOM`, `Social`, `App`, `Extension`); per-signal slots (`SSDeep`, `TextEmbedding`, `LogoEmbedding`, `FaviconPHash`).
-- **Multi-signal clustering pipeline (production side)**: [Issue #15](https://github.com/phishfort/detection-platform-metal/issues/15) — *replaces closed [Issue #12](https://github.com/phishfort/detection-platform-metal/issues/12)*. New clustering component (clustering-service Go + clustering-ml-sidecar Python) decoupled from classifier-worker. Three validated signal-type families: ssdeep (existing), image phash (favicon + social profile, validated by experiment), text embedding (domain HTML + social description, validated with both Snowflake Arctic Embed L v2.0 and `paraphrase-multilingual-mpnet-base-v2`). Three new tables: `clustering_runs`, `clusters`, `cluster_memberships`. Run-based immutable snapshots; reference-only membership (incident_id, no feature duplication). Plugin contract with four primitives per signal type. Cluster well-formedness invariant (pairwise cohesion at stored threshold) load-bearing for Issue #10 §3.3 trust criterion. Consumer-side convention preserved unchanged — `detection_data` → DataRefresher → pre-indexed Redis payload → matcher. Decoupled from #10 (composes by convention only; either order works). Local artifacts: `detection-platform-metal-work/done/20260427-mon/1.cluster-store-redesign/{new-issue-proposal.md, clustering-architecture.md, social-incident-clustering-research.md, experiments/}`.
-- **Future per-signal-type issues** (not yet opened): embedding (port of legacy [PR #1203](https://github.com/phishfort/detection-platform/pull/1203) reshaped — sidecar over HTTP/JSON, vectors persisted on enrichment tables), phash (favicon — replaces today's MD5 in `f4-favicon-comparison`), logo embedding (Siamese). Each is a vertical slice: matcher addition + production pipeline.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
 
-**Out of scope (stays in `classifier_results`)**: single-incident classifiers without a curated library — `f0-suspicious-domain-cnn`, `f5-suspicious-domtext-modernbert`. They emit per-incident model scores; no cluster, no centroid, no labelled corpus to match against.
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/project_pattern_recognition_framework.md`
 
-**Why:** The legacy detection-platform held incidents in BigQuery (expensive on-demand). Each clustering type kept its own Redis cache + classifier-worker SQLite working state because BQ-on-every-incident wasn't viable. In metal, full-retention Postgres holds incidents and their fingerprints; `detection_data` already exists as the canonical labelled-corpus store. The framework collapses the layered indirection into a single signal-type-agnostic shape.
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
 
-**How to apply:** When new signal-type / classifier work comes up, ask: does this signal match against a curated, vetted library? Yes → it's pattern recognition (slot in `PatternRecognition`, rows in `detection_data` with a new `target_type`). No → it's a single-incident classifier (stays in `classifier_results`). Canonical multi-signal reference: `architecture-decisions.md` in the port-known-content-proposal task dir (currently `busy/`, will move to `done/<date>/<seq>/` when the sibling task closes — locate via `find /workspace/detection-platform-metal-work -name architecture-decisions.md`).
+Reason: Product pattern framework preserved here until a deliberate product-doc destination is selected.

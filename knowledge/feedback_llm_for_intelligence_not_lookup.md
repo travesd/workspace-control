@@ -1,24 +1,23 @@
 ---
 title: "LLM workflows add intelligence, not execute lookup tables"
-description: "Detection-platform governing principle — use LLMs only for content understanding, multimodal reasoning, novel-pattern detection; move lookup tables, string matching, and policy matrices to code even when they currently live in a prompt"
-tags: [feedback, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: service
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/feedback_llm_for_intelligence_not_lookup.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-**Rule:** In detection-platform LLM workflows, use LLMs for the things code can't do well — content understanding, multimodal reasoning, novel-pattern detection, ambiguity handling. Use code for lookup tables, string matching, suffix classification, edit distance, policy matrices, and deterministic rules — even when those currently live inside a prompt.
+# LLM workflows add intelligence, not execute lookup tables
 
-**Why:** User stated this explicitly during the llm-judge-domain-workflows review (2026-04-10): "the point of our workflows is to add intelligence to cover things we can't do with ML models." The current d2_analysis_v4 violates this principle in several places:
-- `domain_brand_extract` uses an LLM to apply a hardcoded list of business-vs-generic suffixes — the list is literally pasted into the prompt.
-- `domain_typosquat_match_v2` uses an LLM to execute a 6×3 page_category × nameUniqueness verdict matrix — the matrix is a lookup table written in natural language.
-- The threat judge has a 5-step decision tree encoded as prompt rules that could be a switch statement.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
 
-Using LLMs for these tasks adds sampling variance (same input can flip verdicts), latency, cost, and debugging pain (no breakpoints, no unit tests), and sometimes reduces accuracy because the LLM goes off-script.
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/feedback_llm_for_intelligence_not_lookup.md`
 
-**How to apply:**
-- When reviewing or designing an LLM workflow step, ask: "Does this prompt contain hardcoded lists, rule matrices, threshold tables, or decision trees?" If yes, those belong in code.
-- Keep the LLM in the loop for: reading page content, inferring brand portrayal/framing, detecting industry mismatch, recognizing novel patterns, multimodal reasoning, genuinely ambiguous judgment calls.
-- When moving a rule from prompt to code, output "unclear" / "needs_review" on edge cases the code rule can't confidently handle, and let an LLM arbitrator pick up only those. Hybrid, not replacement.
-- This principle does NOT touch ML classifier accuracy — ML upstream stays as-is. The redesign is about the LLM-land middle layer, not the ML-land layer.
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
+
+Reason: Product LLM workflow guidance preserved here until a deliberate product-doc destination is selected.

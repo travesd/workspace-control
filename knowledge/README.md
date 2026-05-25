@@ -1,32 +1,39 @@
 # Knowledge Notes
 
-This directory stores provider-neutral durable workspace operating-model
-learnings. It is for agent workflow facts, gotchas, methods, and decision
-pointers that should be lookupable by Claude, Codex, and future harnesses
-without relying on provider-local memory.
+This directory stores provider-neutral durable workspace-control
+operating-model learnings. It is for agent workflow facts, gotchas, methods,
+and decision pointers that should be lookupable by Claude, Codex, and future
+harnesses without relying on provider-local memory.
 
 Raw provider memory exports, transcripts, secrets, task artifacts, datasets,
 screenshots, backups, product-release facts, incident findings, and ordinary
-product facts do not belong here.
+product facts do not belong here. Broader detection-platform-metal
+workspace/product-adjacent knowledge belongs in
+`/workspace/detection-platform-metal-work/knowledge/`.
 
 ## Lookup Order
 
 1. Read the active workspace instructions for the current environment.
 2. Run or read `tools/workspace-status` for a compact orientation.
 3. Search `knowledge/INDEX.md`, `knowledge/index.json`, or `tools/knowledgectl search <query>`.
-4. Open only the specific notes relevant to the task.
-5. Open the linked source evidence before relying on a load-bearing or stale-prone claim.
+4. For detection-platform-metal workspace/product-adjacent knowledge, search
+   `/workspace/detection-platform-metal-work/knowledge/INDEX.md` or run
+   `KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge tools/knowledgectl search <query>`.
+5. Open only the specific notes relevant to the task.
+6. Open the linked source evidence before relying on a load-bearing or stale-prone claim.
 
 Do not load the whole knowledge tree at session start.
 
 ## Promotion Rules
 
 - One-off details stay in task `notes.md` or `SUMMARY.md`.
-- Reusable workspace/agent workflow facts, gotchas, and methods become
+- Reusable workspace-control/agent workflow facts, gotchas, and methods become
   `knowledge/*.md`.
-- Product, release, incident, and service-specific facts stay in task
-  summaries, product docs, dataset manifests, or the product repo unless they
-  change how agents should operate the workspace.
+- Detection-platform-metal workspace/product-adjacent facts go under
+  `/workspace/detection-platform-metal-work/knowledge/` unless a task summary,
+  product doc, dataset manifest, or product repo is the narrower home.
+- Product, release, incident, and service-specific facts stay out of this repo
+  unless they change the workspace-control operating model.
 - Repeatable multi-step procedures become shared skills under `agent-skills/skills/`.
 - Stable workspace-wide safety or execution rules become `AGENTS.md` only after explicit review.
 - Dataset-specific truths belong in dataset manifests, with a knowledge note only when the lesson affects broader workflow.
@@ -47,7 +54,9 @@ Required fields:
 - `source`
 - `re_verify_when`
 
-Seed notes migrated from provider-local memory may temporarily lack `type` or `scope`; `tools/knowledgectl lint` treats those as explicit warnings until they are backfilled.
+Superseded pointer notes may remain for one transition cycle after migrating
+facts to the workspace-level knowledge tree. Treat the pointer target as
+canonical.
 
 ## Generated Files
 

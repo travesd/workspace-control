@@ -1,8 +1,10 @@
 ---
 title: "Verify before asserting — no inference as fact"
 description: "Never claim how code works, what data shows, or how systems behave without verifying. Read the code, query the data, check the state — then assert. Sub-agent reports are inputs, not facts."
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

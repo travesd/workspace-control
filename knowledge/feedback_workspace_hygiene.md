@@ -1,8 +1,10 @@
 ---
 title: "Workspace hygiene enforcement"
 description: "Always create busy/<task>/ directory BEFORE generating any work artifacts - never dump files in workspace root or detection-platform-work root"
+type: workflow
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

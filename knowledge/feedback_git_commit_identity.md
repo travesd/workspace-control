@@ -1,8 +1,10 @@
 ---
 title: "Never override git commit identity"
 description: "Never override the git commit author/committer identity. Use the repository or user git config as-is. No --author flag, no GIT_AUTHOR/COMMITTER_* env vars, no `git -c user.email=...`."
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

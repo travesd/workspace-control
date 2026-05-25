@@ -1,8 +1,10 @@
 ---
 title: "Read canonical scripts and code before asking scope questions"
 description: "When a task could plausibly be defined by an existing script or code path, find and read it before asking the user clarifying questions."
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

@@ -1,15 +1,23 @@
 ---
 title: "Cluster brand is human/LLM assigned, not derived from columns"
-description: "SSDeep cluster brand field is set by LLM suggestion or human override during labeling — never derived from ASN, composition, or any other data column"
-tags: [feedback, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: service
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/feedback_cluster_library_brands.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-Cluster brand is a LABEL assigned during the labeling workflow (LLM suggest or human override). It is NOT derived from dominant_asn, composition, or any structural data field.
+# Cluster brand is human/LLM assigned, not derived from columns
 
-**Why:** The entire point of the cluster library is to browse LABELED data — dispositions, categories, and brands that humans/LLM have assigned. Suggesting that brand should be "Cloudflare" because the ASN is Cloudflare misunderstands the labeling model. A non-content Cloudflare error page cluster might have brand=NULL because it's generic infrastructure noise, or it might have brand="Cloudflare" if a human decided that's meaningful for routing/GTM. The brand field reflects a classification decision, not a data extraction.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
 
-**How to apply:** When working with cluster labels (disposition, category, brand), treat them as curated human decisions. Don't propose replacing or deriving them from raw enrichment data. When building views for labeled data, show the labels as-is and provide filtering/grouping on the label values, not on the underlying enrichment columns.
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/feedback_cluster_library_brands.md`
+
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
+
+Reason: Product/service brand-clustering guidance preserved here until a deliberate product-doc destination is selected.

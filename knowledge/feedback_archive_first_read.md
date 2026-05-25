@@ -1,8 +1,10 @@
 ---
 title: "Archive-first read when porting"
 description: "When a task has an archived counterpart, read the archive's reference implementation BEFORE writing new code — not after the first bug"
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

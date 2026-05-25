@@ -53,6 +53,7 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
 | `/workspace/detection-platform-metal` | Read-only reference checkout on `main`. |
 | `/workspace/detection-platform-metal.worktrees/<branch>/` | Active branch worktrees. |
 | `/workspace/detection-platform-metal-work/` | Task state: `busy/`, `parked/`, `later/`, `done/`, `archived/`, `planned/`, `investigations/`. |
+| `/workspace/detection-platform-metal-work/knowledge/` | Workspace/product-adjacent knowledge for detection-platform-metal agents. |
 | `/workspace/datasets/` | Durable reusable data products and manifests. |
 | `/workspace/backups/` | Point-in-time platform state backups for restore planning. |
 | `/workspace/agent-skills/` | Canonical shared Claude/Codex skills. |
@@ -178,10 +179,14 @@ Detailed dataset/cache semantics:
   `/workspace/.agents/skills/`.
 - Edit canonical shared skills first, then run `skillctl validate` and
   `skillctl sync` only after approval.
-- Durable provider-neutral learnings live in
+- Workspace-control operating-model learnings live in
   `/workspace/workspace-control/knowledge/`.
-- Do not load the whole knowledge tree at session start. Search the generated
-  index or use `knowledgectl search`, then open only relevant notes.
+- Detection-platform-metal workspace/product-adjacent learnings live in
+  `/workspace/detection-platform-metal-work/knowledge/`.
+- Do not load either knowledge tree at session start. Search the generated
+  indexes or use `/workspace/workspace-control/tools/knowledgectl search
+  <term>`; set `KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge`
+  for the workspace-level tree.
 
 ## Review And Handoff
 

@@ -2,10 +2,352 @@
    "generated_by" : "tools/knowledgectl index",
    "notes" : [
       {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_atlas_sum.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "repo",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_atlas_sum.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "atlas.sum is auto-regenerated — don't flag it",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_audit_mirror_production_definition.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_audit_mirror_production_definition.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Audit must mirror production definition",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_ssdeep_block_size_96.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_ssdeep_block_size_96.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Block-size 96 ssdeep httpreq hashes are unreliable",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_classification_review.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_classification_review.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Classification review learnings",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_cluster_library_brands.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_cluster_library_brands.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Cluster brand is human/LLM assigned, not derived from columns",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "project_curated_70_sample_dataset.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "dataset",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/project_curated_70_sample_dataset.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Curated 70-sample impersonation dataset",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_filter_service_tranco_bypass.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_filter_service_tranco_bypass.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "filter-service Tranco bypass for local-stack startup",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "project_llm_classifier_ground_truth.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/project_llm_classifier_ground_truth.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "LLM classifier ground truth principles",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_llm_prompt_iteration_methodology.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_llm_prompt_iteration_methodology.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "LLM prompt iteration methodology",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_llm_for_intelligence_not_lookup.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_llm_for_intelligence_not_lookup.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "LLM workflows add intelligence, not execute lookup tables",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "project_metal_environments.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "workspace",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/project_metal_environments.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Metal staging/prod exist alongside still-active legacy GKE",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "project_monitor_lifecycle_scope.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/project_monitor_lifecycle_scope.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Monitor lifecycle scope",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_ssdeep_promote_client_only.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_ssdeep_promote_client_only.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Only promote ssdeep clusters with client domain brands",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "project_pattern_recognition_framework.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/project_pattern_recognition_framework.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Pattern recognition framework",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_playwright_headless.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "workspace",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_playwright_headless.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Playwright MCP must run headless",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_ssdeep_classifier_refresh.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "service",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_ssdeep_classifier_refresh.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "SSDeep classifier refresh requires service restart",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_ekey_vs_ecode.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "repo",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_ekey_vs_ecode.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "Use e.code not e.key for keyboard shortcuts with modifiers",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
+         "description" : "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split.",
+         "file" : "feedback_virtiofs_enfile_workaround.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
+         "re_verify_when" : "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence.",
+         "scope" : "workspace",
+         "source" : "/workspace/detection-platform-metal-work/knowledge/feedback_virtiofs_enfile_workaround.md",
+         "status" : "superseded",
+         "tags" : [
+            "migrated",
+            "pointer",
+            "workspace-knowledge"
+         ],
+         "title" : "virtiofs ENFILE — historical (superseded 2026-04-24)",
+         "type" : "decision-pointer",
+         "verified" : "2026-05-25",
+         "weak_provenance" : false
+      },
+      {
          "description" : "When a task has an archived counterpart, read the archive's reference implementation BEFORE writing new code — not after the first bug",
          "file" : "feedback_archive_first_read.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -20,172 +362,10 @@
          "weak_provenance" : true
       },
       {
-         "description" : "Any shell command where a large value goes into argv (curl -d, jq --argjson, python -c, etc.) will fail with \\\"Argument list too long\\\" above ~128 KB; use tempfile or stdin",
-         "file" : "feedback_arg_max_argv_unsafe.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "ARG_MAX — large strings in argv are unsafe above ~128 KB",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "atlas.sum is regenerated during Docker image build; stale atlas.sum in git doesn't break migrations",
-         "file" : "feedback_atlas_sum.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "atlas.sum is auto-regenerated — don't flag it",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "When auditing a production filter/classifier, the audit verdict definition MUST mirror that component's own definition — not a broader \\\"is it bad\\\" notion.",
-         "file" : "feedback_audit_mirror_production_definition.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Audit must mirror production definition",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "ssdeep hashes at block size 96 (especially httpreq type) match HTTP boilerplate too broadly — set match_threshold=0.85 minimum and prefer DOM hashes",
-         "file" : "feedback_ssdeep_block_size_96.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Block-size 96 ssdeep httpreq hashes are unreliable",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Procedural rules for /review-classification — what to check, what to exclude, push conventions",
-         "file" : "feedback_classification_review.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Classification review learnings",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "SSDeep cluster brand field is set by LLM suggestion or human override during labeling — never derived from ASN, composition, or any other data column",
-         "file" : "feedback_cluster_library_brands.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Cluster brand is human/LLM assigned, not derived from columns",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "When filter-service fails to start in a fresh local stack with \\\"Initial refresh failed; starting with empty set: unzip: context deadline exceeded\\\", point TRANCO_LIST_URL at a fast-fail address so FX OnStart returns before its deadline.",
-         "file" : "feedback_filter_service_tranco_bypass.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "filter-service Tranco bypass for local-stack startup",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "How to iterate LLM classifier/judge prompts in this codebase — concept-first framing, trace-justified disambiguators, variance characterization before comparing versions",
-         "file" : "feedback_llm_prompt_iteration_methodology.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "LLM prompt iteration methodology",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Detection-platform governing principle — use LLMs only for content understanding, multimodal reasoning, novel-pattern detection; move lookup tables, string matching, and policy matrices to code even when they currently live in a prompt",
-         "file" : "feedback_llm_for_intelligence_not_lookup.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "LLM workflows add intelligence, not execute lookup tables",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
          "description" : "For deep investigations/reviews, update notes.md and a dedicated investigation doc AS you read files — don't let findings live only in conversation context",
          "file" : "feedback_log_investigation_incrementally.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -202,8 +382,8 @@
       {
          "description" : "Never override the git commit author/committer identity. Use the repository or user git config as-is. No --author flag, no GIT_AUTHOR/COMMITTER_* env vars, no `git -c user.email=...`.",
          "file" : "feedback_git_commit_identity.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -218,46 +398,10 @@
          "weak_provenance" : true
       },
       {
-         "description" : "Non-client malicious ssdeep clusters cause false positives and can't route to gatekeeper — only promote clusters where brand matches an active client domain",
-         "file" : "feedback_ssdeep_promote_client_only.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Only promote ssdeep clusters with client domain brands",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Playwright MCP must be configured with --headless flag for headless Chrome in Docker containers without X server",
-         "file" : "feedback_playwright_headless.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Playwright MCP must run headless",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
          "description" : "When asked to plan/propose something, save the document — do NOT enter implementation mode or try to implement it",
          "file" : "feedback_proposals_not_implementation.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -274,10 +418,10 @@
       {
          "description" : "In phishfort/detection-platform-metal the default base for PRs is `main`. Pass `--base main` explicitly to avoid legacy defaults leaking in from gh config or past sessions.",
          "file" : "feedback_pr_default_base_main.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
+         "scope" : "repo",
          "source" : "sanitized workspace memory migration, 2026-05-20",
          "status" : "active",
          "tags" : [
@@ -292,8 +436,8 @@
       {
          "description" : "When a task could plausibly be defined by an existing script or code path, find and read it before asking the user clarifying questions.",
          "file" : "feedback_read_scripts_before_asking.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -308,46 +452,10 @@
          "weak_provenance" : true
       },
       {
-         "description" : "Selective refresh endpoints on classifier-worker don't send Redis PubSub notifications — classifier services keep stale in-memory cache until restarted or background cycle runs",
-         "file" : "feedback_ssdeep_classifier_refresh.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "SSDeep classifier refresh requires service restart",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "e.key returns the shifted character (Shift+. = \\\">\\\"), breaking shortcut detection. e.code returns the physical key. Playwright bypasses this.",
-         "file" : "feedback_ekey_vs_ecode.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "feedback",
-            "memory-migration"
-         ],
-         "title" : "Use e.code not e.key for keyboard shortcuts with modifiers",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
          "description" : "Never claim how code works, what data shows, or how systems behave without verifying. Read the code, query the data, check the state — then assert. Sub-agent reports are inputs, not facts.",
          "file" : "feedback_verify_before_asserting.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -362,10 +470,10 @@
          "weak_provenance" : true
       },
       {
-         "description" : "Historical pointer — /workspace was virtiofs with an fd-limit ENFILE issue until 2026-04-24, now ext4 block-device. No active rule.",
-         "file" : "feedback_virtiofs_enfile_workaround.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "description" : "Any shell command where a large value goes into argv (curl -d, jq --argjson, python -c, etc.) will fail with \\\"Argument list too long\\\" above ~128 KB; use tempfile or stdin",
+         "file" : "feedback_arg_max_argv_unsafe.md",
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -374,16 +482,16 @@
             "feedback",
             "memory-migration"
          ],
-         "title" : "virtiofs ENFILE — historical (superseded 2026-04-24)",
-         "type" : "feedback",
+         "title" : "ARG_MAX — large strings in argv are unsafe above ~128 KB",
+         "type" : "gotcha",
          "verified" : "2026-05-20",
          "weak_provenance" : true
       },
       {
          "description" : "Always create busy/<task>/ directory BEFORE generating any work artifacts - never dump files in workspace root or detection-platform-work root",
          "file" : "feedback_workspace_hygiene.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "Before promoting to AGENTS.md, shared skills, or operational automation.",
          "scope" : "workspace",
          "source" : "sanitized workspace memory migration, 2026-05-20",
@@ -393,105 +501,15 @@
             "memory-migration"
          ],
          "title" : "Workspace hygiene enforcement",
-         "type" : "feedback",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Ground-truth labeled dataset for impersonation_check seam evaluation — 50 impersonation + 20 non-impersonation cases across 14+ brands",
-         "file" : "project_curated_70_sample_dataset.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state.",
-         "scope" : "dataset",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "project",
-            "memory-migration"
-         ],
-         "title" : "Curated 70-sample impersonation dataset",
-         "type" : "project-fact",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Repo-agnostic principles for LLM classifier ground truth — corpus is authoritative, clientId is not an LLM input, tainted-template handling, social corpus matching rules.",
-         "file" : "project_llm_classifier_ground_truth.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "project",
-            "memory-migration"
-         ],
-         "title" : "LLM classifier ground truth principles",
-         "type" : "project-fact",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Metal has its own staging and prod environments; legacy non-metal staging/prod are still active in parallel. Distinguish via /workspace/classifiers.pipeline-*.env files.",
-         "file" : "project_metal_environments.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "project",
-            "memory-migration"
-         ],
-         "title" : "Metal staging/prod exist alongside still-active legacy GKE",
-         "type" : "project-fact",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Monitor judgement is reserved for brand-confusable hostnames currently showing no content; content-bearing non-impersonation pages do NOT belong in monitor",
-         "file" : "project_monitor_lifecycle_scope.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "project",
-            "memory-migration"
-         ],
-         "title" : "Monitor lifecycle scope",
-         "type" : "project-fact",
-         "verified" : "2026-05-20",
-         "weak_provenance" : true
-      },
-      {
-         "description" : "Multi-signal pattern recognition framework on metal — umbrella concept, per-signal slicing, where curated-library matching belongs vs single-incident classifiers",
-         "file" : "project_pattern_recognition_framework.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
-         "re_verify_when" : "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state.",
-         "scope" : "workspace",
-         "source" : "sanitized workspace memory migration, 2026-05-20",
-         "status" : "active",
-         "tags" : [
-            "project",
-            "memory-migration"
-         ],
-         "title" : "Pattern recognition framework",
-         "type" : "project-fact",
+         "type" : "workflow",
          "verified" : "2026-05-20",
          "weak_provenance" : true
       },
       {
          "description" : "",
          "file" : "workspace-organization-efficiency-20260520.md",
-         "legacy_missing_scope" : true,
-         "legacy_missing_type" : true,
+         "legacy_missing_scope" : false,
+         "legacy_missing_type" : false,
          "re_verify_when" : "After workspace-control repo first implementation slice or Pi pilot changes",
          "scope" : "workspace",
          "source" : "/workspace/detection-platform-metal-work/investigations/workspace-organization-efficiency-20260520/recommendations.md",

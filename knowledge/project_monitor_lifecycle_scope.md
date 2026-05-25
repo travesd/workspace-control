@@ -1,23 +1,23 @@
 ---
 title: "Monitor lifecycle scope"
-description: "Monitor judgement is reserved for brand-confusable hostnames currently showing no content; content-bearing non-impersonation pages do NOT belong in monitor"
-tags: [project, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before relying on this project fact for code, data, or environment behavior, verify against current workspace state."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: service
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/project_monitor_lifecycle_scope.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-Monitor judgement is reserved for **brand-confusable hostnames currently showing no content** (parked, Cloudflare interstitial, security challenge, sparse). Those domains might activate impersonation later, so the monitoring feeder re-queues them on the doubling-interval schedule.
+# Monitor lifecycle scope
 
-A page that has clear content but isn't impersonating the protected brand (e.g. unrelated gambling content on `tetherzip.com`, or a "Flash USDT" service that exploits brand trust without claiming to BE Tether) does **NOT** belong in monitor — that misuses the monitoring schedule. Use suspicious (operator review) or safe (no action) instead.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
 
-**Why:** Monitoring is a scarce resource — every monitor row gets re-evaluated on the day-1/2/4/8/16/32 schedule. Filling it with content-bearing FPs that won't change state burns the schedule on incidents that should be definitively closed.
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/project_monitor_lifecycle_scope.md`
 
-**How to apply:** When designing FP filters that downgrade takedown verdicts, split the downgrade target by page content:
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
 
-- `relationship_type == brand_presenting_surface` → keep takedown
-- `relationship_type != brand_presenting_surface` AND page is non-content / brand-confusable hostname → monitor
-- `relationship_type != brand_presenting_surface` AND page has meaningful content → suspicious or safe (not monitor)
-
-Relates to [[feedback-classification-review]] (judgement semantics in the metal stack).
+Reason: Product monitor lifecycle scope preserved here until a deliberate product-doc destination is selected.

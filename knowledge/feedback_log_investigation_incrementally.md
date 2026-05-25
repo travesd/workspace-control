@@ -1,8 +1,10 @@
 ---
 title: "Log investigations incrementally, not at the end"
 description: "For deep investigations/reviews, update notes.md and a dedicated investigation doc AS you read files — don't let findings live only in conversation context"
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

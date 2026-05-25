@@ -1,15 +1,23 @@
 ---
 title: "SSDeep classifier refresh requires service restart"
-description: "Selective refresh endpoints on classifier-worker don't send Redis PubSub notifications — classifier services keep stale in-memory cache until restarted or background cycle runs"
-tags: [feedback, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: service
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/feedback_ssdeep_classifier_refresh.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-The `/refresh/<source>` selective endpoint on classifier-worker writes to Redis but does NOT call `_publish_notification()`. Only `refresh_all()` (full refresh) sends the Redis PubSub notification that triggers classifier services to reload.
+# SSDeep classifier refresh requires service restart
 
-**Why:** Classifier services subscribe to `clsfr:v1:refresh-notification` via Redis PubSub. Redis PubSub is fire-and-forget — no message persistence. Without the notification, classifier processes hold stale in-memory state.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
 
-**How to apply:** After any detection_data change that needs immediate effect (deactivating hashes, threshold changes), trigger a rolling restart of the classifier service. In metal Docker Swarm: `docker service update --force <stack>_<service>` — verify the actual service name first with `docker service ls` before running. Don't rely on selective refresh endpoints alone. (Original GKE-era guidance was `kubectl rollout restart deployment/clsfr-domains-deployment -n detection-classifiers-production`; same concept, different orchestrator. Verify the Redis PubSub mechanics still match in metal source before asserting them as current.)
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/feedback_ssdeep_classifier_refresh.md`
+
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
+
+Reason: Product classifier refresh gotcha preserved here until a deliberate product-doc destination is selected.

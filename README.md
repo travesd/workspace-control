@@ -26,7 +26,8 @@ For ongoing upkeep after activation, see `MAINTENANCE.md`.
 - Workspace instructions and conventions.
 - Shared Agent Skills.
 - Core skills and workspace overlay skill source maps.
-- Durable knowledge notes with provenance and re-verification rules.
+- Workspace-control operating-model knowledge notes with provenance and
+  re-verification rules.
 - Workspace-control helper scripts in `tools/`.
 - Process decisions and ADRs.
 - Implementation plans for staged workspace-control changes.
@@ -41,6 +42,9 @@ For ongoing upkeep after activation, see `MAINTENANCE.md`.
 - Raw datasets, backups, screenshots, or task artifacts.
 - Provider transcripts, provider-local memory exports, or local harness databases.
 - Product repo code and worktrees.
+- Product, release, incident, dataset, or task-specific facts whose narrower
+  home is `/workspace/detection-platform-metal-work/knowledge/`, a dataset
+  manifest, a task summary, or product docs.
 
 ## First Slice
 
@@ -52,7 +56,7 @@ This scaffold contains:
 - layered source-layout scaffolding under `core/`, `workspaces/`, and
   `providers/`,
 - the 2026-05-20 workspace organization investigation outputs,
-- normalized provider-neutral knowledge notes under `knowledge/`,
+- normalized provider-neutral operating-model knowledge notes under `knowledge/`,
 - a Pi pilot area with draft agents and workflow mapping.
 
 Raw provider-local memory exports are intentionally not tracked. See `SANITIZATION.md`.
@@ -61,7 +65,7 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 
 - `tools/workspace-status` - short live orientation report for agents.
 - `tools/workspace-artifact-inventory` - audit-grade inventory for cleanup/review work.
-- `tools/knowledgectl` - lint, index, search, and stale-check provider-neutral knowledge notes.
+- `tools/knowledgectl` - lint, index, search, and stale-check provider-neutral knowledge notes; set `KNOWLEDGE_DIR` to operate on the workspace-level knowledge tree.
 - `tools/renderctl` - render/sync dry-run for compatibility outputs before layered source moves.
 - `tools/check-sensitive-content` - large-file and redacted secret-pattern check before commits or remotes.
 

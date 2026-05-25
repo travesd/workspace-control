@@ -1,8 +1,10 @@
 ---
 title: "ARG_MAX — large strings in argv are unsafe above ~128 KB"
 description: "Any shell command where a large value goes into argv (curl -d, jq --argjson, python -c, etc.) will fail with \"Argument list too long\" above ~128 KB; use tempfile or stdin"
+type: gotcha
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."

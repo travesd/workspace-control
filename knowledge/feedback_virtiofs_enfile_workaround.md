@@ -1,13 +1,23 @@
 ---
 title: "virtiofs ENFILE — historical (superseded 2026-04-24)"
-description: "Historical pointer — /workspace was virtiofs with an fd-limit ENFILE issue until 2026-04-24, now ext4 block-device. No active rule."
-tags: [feedback, memory-migration]
-status: active
-verified: 2026-05-20
-source: "sanitized workspace memory migration, 2026-05-20"
-re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
+description: "Superseded pointer to workspace-level knowledge after the 2026-05-25 source-of-truth split."
+type: decision-pointer
+tags: [migrated, pointer, workspace-knowledge]
+status: superseded
+scope: workspace
+verified: 2026-05-25
+source: "/workspace/detection-platform-metal-work/knowledge/feedback_virtiofs_enfile_workaround.md"
+re_verify_when: "Before retiring this pointer or relying on the migrated note, verify the destination note and source evidence."
 ---
 
-**SUPERSEDED 2026-04-24**: `/workspace` is now a native ext4 block-device mount (`/dev/vdc`). The virtiofs fd-pressure ENFILE issue is resolved at the root.
+# virtiofs ENFILE — historical (superseded 2026-04-24)
 
-This file is retained only as historical context. Earlier commits and instructions may reference path workarounds because of this. Do not apply the old workarounds; they are no longer needed. Worktrees, Go caches, and bind mounts behave normally on the current ext4 setup.
+This note moved out of `/workspace/workspace-control/knowledge/` because it is not workspace-control operating-model knowledge.
+
+Canonical home:
+`/workspace/detection-platform-metal-work/knowledge/feedback_virtiofs_enfile_workaround.md`
+
+Migration record:
+`/workspace/detection-platform-metal-work/knowledge/MIGRATION-20260525.md`
+
+Reason: Historical workspace filesystem note belongs outside workspace-control and remains superseded.

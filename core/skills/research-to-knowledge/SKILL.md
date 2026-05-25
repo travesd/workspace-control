@@ -19,12 +19,14 @@ examples should be evaluated for local process improvements.
    - what risks or incompatibilities exist.
 4. Choose the durable home from the local parameter map:
    - task note for one-off context,
-   - knowledge note for reusable learning,
+   - workspace-control knowledge note for reusable operating-model learning,
+   - workspace-level knowledge note for product-adjacent learning without a
+     narrower home,
    - shared skill for repeatable procedure,
    - decision record for operating-model decision,
    - spec/template when implementation needs a larger artifact.
 5. For knowledge notes, use the local note template and lint/index command when
-   available.
+   available and pick the narrowest canonical home from the local parameter map.
 
 ## Output Shape
 

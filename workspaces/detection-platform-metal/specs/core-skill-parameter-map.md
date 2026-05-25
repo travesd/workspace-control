@@ -27,8 +27,10 @@ It is a repo reference only until layered activation is explicitly approved.
   task-local `notes.md` and `SUMMARY.md`.
 - Session index:
   `/workspace/detection-platform-metal-work/SESSIONS.md`.
-- Knowledge notes:
+- Workspace-control operating-model knowledge notes:
   `/workspace/workspace-control/knowledge/`.
+- Detection-platform-metal workspace/product-adjacent knowledge notes:
+  `/workspace/detection-platform-metal-work/knowledge/`.
 - Decision records:
   `/workspace/workspace-control/docs/decisions/`.
 - Shared skills source in this repo:
@@ -48,6 +50,10 @@ It is a repo reference only until layered activation is explicitly approved.
   `./tools/knowledgectl search <term>`,
   `./tools/knowledgectl lint`,
   `./tools/knowledgectl index`.
+- Workspace-level knowledge search/lint/index:
+  `KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge ./tools/knowledgectl search <term>`,
+  `KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge ./tools/knowledgectl lint`,
+  `KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge ./tools/knowledgectl index`.
 - Skill validation:
   `SKILLCTL_CANONICAL_DIR=/workspace/workspace-control/agent-skills/skills /workspace/tools/skills/skillctl validate`.
 - Generated skill validation:

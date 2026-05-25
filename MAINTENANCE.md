@@ -11,7 +11,7 @@ workspace operating-model knowledge, not just reusable product knowledge:
 
 - workspace-wide rules or path conventions change,
 - shared Agent Skills change,
-- durable workspace/agent workflow knowledge notes are added or corrected,
+- durable workspace-control/agent workflow knowledge notes are added or corrected,
 - helper scripts under `tools/` change,
 - task lifecycle definitions or templates change,
 - task resumability scoring or note templates change,
@@ -120,8 +120,8 @@ Keep always-loaded instructions thin.
 
 ## Knowledge Sync
 
-Use durable knowledge for reusable workspace operating-model facts and agent
-workflow gotchas, not raw research dumps or product-release facts.
+Use durable knowledge for reusable workspace-control operating-model facts and
+agent workflow gotchas, not raw research dumps or product-release facts.
 
 ```bash
 ./tools/knowledgectl search <term>
@@ -129,12 +129,21 @@ workflow gotchas, not raw research dumps or product-release facts.
 ./tools/knowledgectl index
 ```
 
+For broader detection-platform-metal workspace/product-adjacent knowledge, use:
+
+```bash
+KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge ./tools/knowledgectl search <term>
+KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge ./tools/knowledgectl lint
+KNOWLEDGE_DIR=/workspace/detection-platform-metal-work/knowledge ./tools/knowledgectl index
+```
+
 Set `re_verify_when` on notes whose facts can become stale, and prefer links to
 task summaries, manifests, or source docs over pasted raw transcript content.
 
-Product, release, incident, and service-specific findings stay in the task
-summary, product docs, dataset manifests, or the product repo unless the finding
-changes how agents should operate this workspace.
+Product, release, incident, and service-specific findings stay out of this repo
+unless they change the workspace-control operating model. Use the workspace
+knowledge tree only when no narrower task, dataset, or product-doc destination
+has been selected yet.
 
 ## Resumability Review
 

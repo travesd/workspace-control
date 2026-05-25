@@ -6,6 +6,10 @@ This repo is for workspace operating-model documentation and harness configurati
 
 - Do not copy secrets, env files, credentials, provider transcripts, raw datasets, backups, or product worktrees into this repo.
 - Keep canonical shared knowledge provider-neutral. Claude, Codex, and Pi may consume or mirror these files, but provider-local memory is not authoritative.
+- Keep `knowledge/` limited to workspace-control operating-model and agent
+  workflow learnings. Broader detection-platform-metal workspace/product
+  knowledge belongs under `/workspace/detection-platform-metal-work/knowledge/`
+  unless a dataset manifest, task summary, or product doc is the narrower home.
 - For workspace operating-model changes, edit and review this repo first,
   commit and push after approval, then activate into live `/workspace` only
   with explicit approval and rollback notes.
@@ -15,10 +19,9 @@ This repo is for workspace operating-model documentation and harness configurati
 - Use ADRs in `docs/decisions/` for durable process decisions.
 - Use `docs/specs/task-resumability.md` for task note, handoff, and recovery
   standards; keep only pointers in always-loaded workspace instructions.
-- Keep `knowledge/` limited to workspace operating-model and agent workflow
-  learnings. Product, release, incident, or task-specific facts belong in their
-  task summary, product docs, dataset manifests, or the product repo unless
-  they change how agents operate the workspace.
+- Product, release, incident, or task-specific facts belong in their task
+  summary, product docs, dataset manifests, or the product repo unless they
+  change how agents operate the workspace.
 
 ## Validation
 

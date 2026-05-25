@@ -16,6 +16,8 @@ Use this skill at the start of a non-trivial session, when resuming work, or whe
    - task counts by lifecycle state when available,
    - current cwd mapping to task/worktree,
    - open PR/branch context when relevant,
+   - knowledge health for both operating-model and workspace-level notes when
+     available,
    - missing resume/session warnings,
    - intake checklist if no task context is detected.
 3. Keep the report concise. Link to detailed indexes rather than dumping them.

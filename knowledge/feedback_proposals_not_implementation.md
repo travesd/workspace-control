@@ -1,8 +1,10 @@
 ---
 title: "Proposals are not implementation tasks"
 description: "When asked to plan/propose something, save the document — do NOT enter implementation mode or try to implement it"
+type: feedback
 tags: [feedback, memory-migration]
 status: active
+scope: workspace
 verified: 2026-05-20
 source: "sanitized workspace memory migration, 2026-05-20"
 re_verify_when: "Before promoting to AGENTS.md, shared skills, or operational automation."
