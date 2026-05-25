@@ -145,3 +145,6 @@ Before or after live activation, run:
 
 This command is read-only and may report differences while repo changes are
 approved but not yet activated.
+
+Current proposed live activation:
+`docs/plans/2026-05-25-skill-parameterization-live-activation.md`

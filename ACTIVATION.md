@@ -42,3 +42,13 @@
 12. Record the activation in `docs/decisions/`.
 
 See `MAINTENANCE.md` for the recurring upkeep workflow after activation.
+
+## Current Proposed Activation
+
+The current repo-reviewed live activation proposal is:
+
+- `docs/plans/2026-05-25-skill-parameterization-live-activation.md`
+
+It covers shared skill sync plus optional documentation-only tool README parity.
+It does not activate Pi, provider runtime config, product repos, task movement,
+or always-loaded instruction changes.
