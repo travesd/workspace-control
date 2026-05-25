@@ -98,19 +98,25 @@ matches live `/workspace/AGENTS.md` before activation.
 
 ## Slice 5: Provider Adapters
 
+Current status: provider config source files exist under `providers/` and
+`tools/renderctl dry-run --mode providers` verifies that they generate the
+current compatibility config examples. This is still dry-run only; no provider
+mirror sync or Pi activation is included.
+
 Claude:
 
 - keep `current-workspace/CLAUDE.md` as a thin wrapper,
-- add provider-specific mapping in `providers/claude/`.
+- keep Claude config examples in `providers/claude/config/`.
 
 Codex:
 
-- move project-local config examples to `providers/codex/`,
+- keep project-local config examples in `providers/codex/config/`,
 - add custom-agent profile mapping only after review.
 
 Pi:
 
 - keep `.pi/` and `pi-pilot/` draft-only,
+- render only `.pi/settings.example.json` from `providers/pi/config/`,
 - map Pi agents/workflows back to core/workspace source files,
 - require separate package/schema ADR before activation.
 

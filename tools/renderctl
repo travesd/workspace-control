@@ -11,7 +11,7 @@ fi
 usage() {
   cat <<'USAGE'
 usage:
-  tools/renderctl dry-run [--mode all|compatibility|instructions|skills] [--out <dir>] [--keep]
+  tools/renderctl dry-run [--mode all|compatibility|instructions|skills|providers] [--out <dir>] [--keep]
 
 Render the current workspace-control compatibility outputs into a generated
 tree and diff them against the checked-in live-compatible sources.
@@ -180,6 +180,52 @@ copy_skill_layer() {
   done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -type d | sort)
 }
 
+copy_provider_file() {
+  local source_rel="$1"
+  local target_rel="$2"
+  local generated_root="$3"
+  local manifest="$4"
+
+  if [ ! -f "$ROOT/$source_rel" ]; then
+    echo "missing provider source: $source_rel" >&2
+    return 1
+  fi
+  if [ ! -f "$ROOT/$target_rel" ]; then
+    echo "missing provider target: $target_rel" >&2
+    return 1
+  fi
+
+  mkdir -p "$generated_root/$(dirname "$target_rel")"
+  cp -a "$ROOT/$source_rel" "$generated_root/$target_rel"
+  printf '%s\t%s\tprovider-adapter\n' "$source_rel" "$target_rel" >>"$manifest"
+}
+
+render_provider_adapters() {
+  local generated_root="$1"
+  local manifest="$2"
+
+  copy_provider_file \
+    "providers/claude/config/claude.settings.json" \
+    "current-workspace/config/claude.settings.json" \
+    "$generated_root" \
+    "$manifest"
+  copy_provider_file \
+    "providers/claude/config/mcp.json" \
+    "current-workspace/config/mcp.json" \
+    "$generated_root" \
+    "$manifest"
+  copy_provider_file \
+    "providers/codex/config/codex.config.toml" \
+    "current-workspace/config/codex.config.toml" \
+    "$generated_root" \
+    "$manifest"
+  copy_provider_file \
+    "providers/pi/config/settings.example.json" \
+    ".pi/settings.example.json" \
+    "$generated_root" \
+    "$manifest"
+}
+
 cmd="${1:-}"
 case "$cmd" in
   dry-run)
@@ -192,14 +238,14 @@ case "$cmd" in
       case "$1" in
         --mode)
           if [ "$#" -lt 2 ]; then
-            echo "--mode requires all, compatibility, instructions, or skills" >&2
+            echo "--mode requires all, compatibility, instructions, skills, or providers" >&2
             exit 2
           fi
           mode="$2"
           case "$mode" in
-            all|compatibility|instructions|skills) ;;
+            all|compatibility|instructions|skills|providers) ;;
             *)
-              echo "--mode requires all, compatibility, instructions, or skills" >&2
+              echo "--mode requires all, compatibility, instructions, skills, or providers" >&2
               exit 2
               ;;
           esac
@@ -269,6 +315,9 @@ case "$cmd" in
       copy_skill_layer "core/skills" "agent-skills/skills" "$generated_root" "$manifest"
       copy_skill_layer "workspaces/detection-platform-metal/skills" "agent-skills/skills" "$generated_root" "$manifest"
     fi
+    if [ "$mode" = "all" ] || [ "$mode" = "providers" ]; then
+      render_provider_adapters "$generated_root" "$manifest"
+    fi
 
     echo "# Render Dry Run"
     echo "Root: $ROOT"
@@ -290,6 +339,12 @@ case "$cmd" in
     if [ "$mode" = "all" ] || [ "$mode" = "skills" ]; then
       echo "- core/skills/<skill>/ -> agent-skills/skills/<skill>/"
       echo "- workspaces/detection-platform-metal/skills/<skill>/ -> agent-skills/skills/<skill>/"
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "providers" ]; then
+      echo "- providers/claude/config/claude.settings.json -> current-workspace/config/claude.settings.json"
+      echo "- providers/claude/config/mcp.json -> current-workspace/config/mcp.json"
+      echo "- providers/codex/config/codex.config.toml -> current-workspace/config/codex.config.toml"
+      echo "- providers/pi/config/settings.example.json -> .pi/settings.example.json"
     fi
     echo
 
@@ -315,6 +370,12 @@ case "$cmd" in
         printf -- "- workspaces/detection-platform-metal/skills/%s\n" "$file"
       done < <(rel_skill_files "workspaces/detection-platform-metal/skills")
     fi
+    if [ "$mode" = "all" ] || [ "$mode" = "providers" ]; then
+      echo "- providers/claude/config/claude.settings.json"
+      echo "- providers/claude/config/mcp.json"
+      echo "- providers/codex/config/codex.config.toml"
+      echo "- providers/pi/config/settings.example.json"
+    fi
     echo
 
     echo "## Target Diffs"
@@ -330,6 +391,12 @@ case "$cmd" in
     fi
     if [ "$mode" = "all" ] || [ "$mode" = "skills" ]; then
       compare_tree "agent-skills/skills" "$generated_root" "$diff_dir" || status=1
+    fi
+    if [ "$mode" = "all" ] || [ "$mode" = "providers" ]; then
+      compare_file "current-workspace/config/claude.settings.json" "$generated_root" "$diff_dir" || status=1
+      compare_file "current-workspace/config/mcp.json" "$generated_root" "$diff_dir" || status=1
+      compare_file "current-workspace/config/codex.config.toml" "$generated_root" "$diff_dir" || status=1
+      compare_file ".pi/settings.example.json" "$generated_root" "$diff_dir" || status=1
     fi
     echo
 

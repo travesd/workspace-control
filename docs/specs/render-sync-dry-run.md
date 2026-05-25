@@ -14,7 +14,8 @@ adapter files.
 ## Current Behavior
 
 `tools/renderctl dry-run` defaults to `--mode all`, which renders the
-compatibility tree, draft instruction composition, and draft skill composition.
+compatibility tree, draft instruction composition, draft skill composition, and
+provider adapter config examples.
 
 Compatibility mode:
 
@@ -38,6 +39,15 @@ Skill mode:
 | `core/skills/<skill>/` | `agent-skills/skills/<skill>/` | skill layer |
 | `workspaces/detection-platform-metal/skills/<skill>/` | `agent-skills/skills/<skill>/` | skill layer |
 
+Provider mode:
+
+| Selected Source | Generated Target | Mode |
+|---|---|---|
+| `providers/claude/config/claude.settings.json` | `current-workspace/config/claude.settings.json` | provider adapter |
+| `providers/claude/config/mcp.json` | `current-workspace/config/mcp.json` | provider adapter |
+| `providers/codex/config/codex.config.toml` | `current-workspace/config/codex.config.toml` | provider adapter |
+| `providers/pi/config/settings.example.json` | `.pi/settings.example.json` | provider adapter |
+
 The command prints:
 
 - selected sources,
@@ -57,6 +67,8 @@ By default the generated tree is temporary and removed after a clean run. Use
 - Do not write to live `/workspace`.
 - Do not sync provider mirrors.
 - Do not activate Pi.
+- Do not render `.pi/settings.json`; it remains a checked draft runtime file,
+  not an activation target.
 
 ## Promotion Gate
 
@@ -80,10 +92,11 @@ Implemented modes:
   reference rendered into `current-workspace/AGENTS.md`.
 - `skills`: draft core skill copies plus draft detection overlay skill copies
   rendered into `agent-skills/skills/`.
+- `providers`: Claude/Codex config examples and the Pi settings example
+  rendered into their current compatibility targets.
 
 The next implementation slices can add explicit modes such as:
 
-- `provider`: provider adapters rendered into Claude/Codex/Pi config examples,
 - `live-check`: read-only comparison between repo compatibility outputs and
   live `/workspace` targets.
 

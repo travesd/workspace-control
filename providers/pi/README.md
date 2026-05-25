@@ -6,6 +6,8 @@ Current draft sources:
 
 - `.pi/`
 - `pi-pilot/`
+- `providers/pi/config/settings.example.json`, rendered to
+  `.pi/settings.example.json`
 
 Future responsibilities:
 
@@ -22,6 +24,14 @@ Boundary examples:
   are draft runnable configuration examples.
 - Pi package/schema choices, adapter design notes, and mapping rationale belong
   here or in `docs/decisions/`, not inside runnable examples.
+- `.pi/settings.json` remains a checked draft runtime file and is not rendered
+  by `tools/renderctl`; do not treat it as live activation.
+
+Validation:
+
+```bash
+tools/renderctl dry-run --mode providers
+```
 
 Future activation target:
 

@@ -194,8 +194,7 @@ Do not make the layered layout live until:
 
 The conservative first gate is `tools/renderctl dry-run`, described in
 `docs/specs/render-sync-dry-run.md`. It now checks the compatibility tree and
-the draft instruction and skill composition. Future modes can add provider
-adapter composition after clean diffs exist.
+the draft instruction, skill, and provider-adapter composition.
 
 ## Provider Notes
 
@@ -204,6 +203,8 @@ Claude:
 - Keep `CLAUDE.md` thin and import the shared contract.
 - Keep detailed procedures in skills or references.
 - Provider-local memory is not the source of truth.
+- Provider config examples under `providers/claude/config/` render back to the
+  current compatibility targets in `current-workspace/config/`.
 
 Codex:
 
@@ -211,9 +212,14 @@ Codex:
 - Use project `.codex/config.toml` only for allowed project-scoped overrides.
 - Custom agents live under `.codex/agents/` or user-level config when adopted.
 - Skills should stay portable and provider-neutral unless deliberately adapted.
+- Provider config examples under `providers/codex/config/` render back to the
+  current compatibility targets in `current-workspace/config/`.
 
 Pi:
 
 - Treat `.pi/` as adapter output or pilot config.
 - Pi agents/workflows should reference core and workspace overlay material.
 - Pi package/schema decisions need separate source review and activation.
+- Only `.pi/settings.example.json` is covered by the provider dry-run today.
+  `.pi/settings.json`, Pi agents, and Pi workflows remain draft-only and
+  outside live activation.

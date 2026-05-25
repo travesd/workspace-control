@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "detection-browser": {
+      "type": "stdio",
+      "command": "/workspace/tools/browser-mcp/browser-mcp",
+      "args": ["detection-ui"],
+      "env": {
+        "AGENT_BROWSER_OUTPUT_DIR": "${AGENT_BROWSER_OUTPUT_DIR:-}",
+        "AGENT_BROWSER_ALLOWED_ORIGINS": "${AGENT_BROWSER_ALLOWED_ORIGINS:-}",
+        "AGENT_BROWSER_BLOCKED_ORIGINS": "${AGENT_BROWSER_BLOCKED_ORIGINS:-}",
+        "AGENT_BROWSER_VIEWPORT": "${AGENT_BROWSER_VIEWPORT:-}",
+        "AGENT_BROWSER_RUNTIME": "${AGENT_BROWSER_RUNTIME:-}",
+        "AGENT_BROWSER_EXECUTABLE_PATH": "${AGENT_BROWSER_EXECUTABLE_PATH:-}",
+        "PLAYWRIGHT_MCP_IMAGE": "${PLAYWRIGHT_MCP_IMAGE:-}",
+        "PLAYWRIGHT_MCP_VERSION": "${PLAYWRIGHT_MCP_VERSION:-}"
+      }
+    }
+  }
+}
