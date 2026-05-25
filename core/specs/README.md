@@ -11,4 +11,3 @@ Likely future homes:
 
 Current canonical specs remain under `docs/specs/` until a render/sync path is
 approved.
-

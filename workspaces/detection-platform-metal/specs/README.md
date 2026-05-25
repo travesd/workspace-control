@@ -11,4 +11,3 @@ Candidate future homes:
 - production read-only investigation constraints.
 
 Current canonical specs remain under `docs/specs/`.
-

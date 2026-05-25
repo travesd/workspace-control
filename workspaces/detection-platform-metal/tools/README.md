@@ -10,4 +10,3 @@ Current live-compatible copies remain under:
 
 Do not move tool sources here until activation can prove generated or copied
 outputs match the current live workspace.
-

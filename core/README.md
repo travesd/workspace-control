@@ -15,4 +15,3 @@ compatibility locations such as `agent-skills/skills/`, `docs/specs/`, and
 
 Before moving files here, follow
 `docs/specs/repo-organization.md`.
-

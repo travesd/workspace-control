@@ -19,4 +19,3 @@ operator access patterns. Keep them out of the portable core layer unless they
 are split into a generic core skill plus a workspace reference.
 
 Current canonical source remains `agent-skills/skills/`.
-

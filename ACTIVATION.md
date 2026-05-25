@@ -30,9 +30,10 @@
 3. Run `tools/knowledgectl lint` and `tools/knowledgectl index` when knowledge notes changed.
 4. Review `git diff --stat` and `git diff`.
 5. Commit in `workspace-control`.
-6. If activating skills, sync reviewed files into `/workspace/agent-skills/skills/`.
-7. Run `/workspace/tools/skills/skillctl validate`.
-8. Run `/workspace/tools/skills/skillctl sync`.
-9. Record the activation in `docs/decisions/`.
+6. Run `git show --check --oneline HEAD` and, before pushing, `git diff --check origin/main..HEAD`.
+7. If activating skills, sync reviewed files into `/workspace/agent-skills/skills/`.
+8. Run `/workspace/tools/skills/skillctl validate`.
+9. Run `/workspace/tools/skills/skillctl sync`.
+10. Record the activation in `docs/decisions/`.
 
 See `MAINTENANCE.md` for the recurring upkeep workflow after activation.

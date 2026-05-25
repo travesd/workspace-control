@@ -62,12 +62,19 @@ Run from `/workspace/workspace-control` before committing or pushing:
 ./tools/knowledgectl lint
 ./tools/renderctl dry-run
 ./tools/knowledgectl index
+git diff --check
+git diff --cached --check
+git show --check --oneline HEAD
+git diff --check origin/main..HEAD
 git diff --stat
 git status --short --branch
 ```
 
 If generated knowledge indexes change, include them with the note changes that
 caused them.
+
+Before pushing local commits, run the outbound range check against the remote
+branch, for example `git diff --check origin/main..HEAD`.
 
 ## Skill Sync
 

@@ -28,7 +28,8 @@ The command prints:
 - generated target root,
 - manifest path,
 - content and file-mode diffs against checked-in compatibility targets,
-- follow-up validation commands.
+- follow-up validation commands, including working-tree, staged, commit, and
+  outbound-range whitespace checks.
 
 By default the generated tree is temporary and removed after a clean run. Use
 `--keep` or `--out <dir>` when a diff artifact needs to be inspected.

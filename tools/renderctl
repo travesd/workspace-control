@@ -177,6 +177,9 @@ case "$cmd" in
     echo "## Follow-Up Validation"
     cat <<'COMMANDS'
 - git diff --check
+- git diff --cached --check
+- git show --check --oneline HEAD
+- git diff --check origin/main..HEAD
 - ./tools/check-sensitive-content .
 - ./tools/knowledgectl lint
 - SKILLCTL_CANONICAL_DIR=/workspace/workspace-control/agent-skills/skills /workspace/tools/skills/skillctl validate

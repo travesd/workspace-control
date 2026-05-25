@@ -14,4 +14,3 @@ Candidate profiles:
 
 Provider adapters may translate these profiles into Claude prompts, Codex custom
 agents, or Pi workflows.
-

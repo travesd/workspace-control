@@ -12,4 +12,3 @@ Each workspace overlay should explain:
 - what live activation target it maps to.
 
 The current overlay is `detection-platform-metal/`.
-

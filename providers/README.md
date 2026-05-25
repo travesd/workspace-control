@@ -14,4 +14,3 @@ Adapters may contain:
 
 Adapters must not become the source of truth for workspace policy. Put shared
 rules in `core/` or `workspaces/<name>/`, then adapt them here.
-
