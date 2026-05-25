@@ -32,6 +32,11 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
   `/workspace/detection-platform-metal`.
 - Make minimal, scoped changes. Do not refactor, upgrade, or rewrite adjacent
   code unless the task requires it.
+- Workspace operating-model changes must be drafted in
+  `/workspace/workspace-control` first, reviewed and validated, committed and
+  pushed after approval, then activated into `/workspace` only with explicit
+  approval and rollback notes. Emergency live fixes must be backported before
+  task closeoff.
 - Do not push, create PRs, merge, remove worktrees, or run destructive cleanup
   without explicit approval where workspace rules require it. One approval does
   not authorize later pushes or PR actions.

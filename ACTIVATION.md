@@ -43,12 +43,14 @@
 
 See `MAINTENANCE.md` for the recurring upkeep workflow after activation.
 
-## Current Proposed Activation
+## Recent Activations
 
-The current repo-reviewed live activation proposal is:
+The latest reviewed live activations are complete:
 
 - `docs/plans/2026-05-25-skill-parameterization-live-activation.md`
+- `docs/decisions/0003-activate-shared-skill-parameterization.md`
 
-It covers shared skill sync plus optional documentation-only tool README parity.
-It does not activate Pi, provider runtime config, product repos, task movement,
-or always-loaded instruction changes.
+They activated shared skill sync, documentation-only tool README parity, and a
+follow-up `skillctl` hardening slice. They did not activate Pi, provider
+runtime config, product repos, task movement, or unrelated always-loaded
+instruction changes.

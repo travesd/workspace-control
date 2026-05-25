@@ -2,7 +2,7 @@
 
 Date: 2026-05-25
 
-Status: proposed; not activated
+Status: activated on 2026-05-25
 
 ## Objective
 
@@ -16,6 +16,13 @@ This plan covers the repo state at:
 ```text
 330d7a7 docs(workspace): split call-a-friend provider commands
 ```
+
+Activation was approved and completed from reviewed repo commit `b48f1d2`.
+The activation record is
+`docs/decisions/0003-activate-shared-skill-parameterization.md`. A follow-up
+tool-hardening activation from commit `ae95a4d` updated
+`/workspace/tools/skills/{skillctl,README.md}` after this plan exposed stale
+mirror cleanup behavior.
 
 Relevant reviewed commits:
 
@@ -54,9 +61,9 @@ Out of scope:
 - No provider adapter runtime config changes.
 - No interruption, restart, resume, or closure of active Claude/Codex chats.
 
-## Current Live-Check
+## Pre-Activation Live-Check
 
-Fresh check on 2026-05-25:
+Fresh check on 2026-05-25 before activation:
 
 ```bash
 cd /workspace/workspace-control
@@ -65,7 +72,7 @@ tools/renderctl dry-run --mode live-check
 
 Expected pre-activation result: nonzero.
 
-Current drift:
+Pre-activation drift:
 
 - `/workspace/AGENTS.md`: clean.
 - `/workspace/CLAUDE.md`: clean.
@@ -206,9 +213,9 @@ cd /workspace/workspace-control
 
 After rollback, record the result in the task notes and rollback manifest.
 
-## Recommendation
+## Outcome
 
-Activate the shared-skill sync and the two documentation-only tool README files
-together. That keeps the mutation limited to reviewed operating-model surfaces
-and should make `renderctl --mode live-check` clean afterward without touching
-always-loaded instructions, Pi, product repos, or active chats.
+The shared-skill sync and the two documentation-only tool README files were
+activated together. A later approved tool-only activation applied the hardened
+`skillctl` behavior. Post-activation `renderctl dry-run --mode live-check` was
+clean without touching Pi, product repos, or active chats.
