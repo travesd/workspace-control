@@ -140,6 +140,11 @@ them into:
 - a detection-platform-metal reference or implementation under
   `workspaces/detection-platform-metal/skills/`.
 
+Portable core skills should use a local parameter map for paths, commands, and
+activation boundaries. The generic template lives at
+`core/templates/skill-parameter-map.md`; the detection-platform-metal map lives
+at `workspaces/detection-platform-metal/specs/core-skill-parameter-map.md`.
+
 Current portability audit:
 `docs/reviews/2026-05-25-core-skill-portability-audit.md`
 

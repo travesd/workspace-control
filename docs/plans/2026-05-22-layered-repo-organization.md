@@ -74,7 +74,9 @@ Before any move, build a dry-run command that reports:
 Current status: draft skill copies exist under `core/skills/` and
 `workspaces/detection-platform-metal/skills/`, and `tools/renderctl dry-run
 --mode skills` verifies that they generate the current compatibility tree.
-The core copies are not all portable yet; see
+The first near-portable core skills have been parameterized through a local
+skill parameter map; several operational core candidates are still workspace
+overlays until split further. See
 `docs/reviews/2026-05-25-core-skill-portability-audit.md`.
 
 Before activation:

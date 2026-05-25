@@ -5,6 +5,10 @@ Date: 2026-05-25
 Scope: draft render-input skill copies under `core/skills/` after
 `tools/renderctl dry-run --mode skills` was added.
 
+Update: 2026-05-25 portability cleanup started for the near-portable review
+and knowledge skills. See `core/templates/skill-parameter-map.md` and
+`workspaces/detection-platform-metal/specs/core-skill-parameter-map.md`.
+
 ## Summary
 
 The skill render path is mechanically clean: draft skill copies under
@@ -38,10 +42,10 @@ SKILLCTL_CANONICAL_DIR=<generated>/agent-skills/skills /workspace/tools/skills/s
 
 | Skill | Current Portability | Notes |
 |---|---|---|
-| `agents-md-review` | Near-portable | Uses `AGENTS.md`, shared skills, `knowledge/`, and ADR assumptions. Needs configurable instruction/knowledge/decision paths before it is workspace-neutral. |
+| `agents-md-review` | Parameterized | Now uses local instruction, knowledge, and decision-record locations from the local parameter map or workspace instructions. |
 | `call-a-friend` | Split required | The core workflow is reusable, but provider command examples are Claude/Codex-specific and should move under provider adapters or provider references before this is true core. Mentions worktrees, active tmux panes, and live activation guardrails. |
-| `durable-learning-capture` | Parameterize | Reusable pattern, but durable homes are workspace-control-specific: `knowledge/*.md`, `agent-skills/skills/`, `AGENTS.md`, dataset manifests, and `docs/decisions/`. Needs a configurable durable-home map. |
-| `research-to-knowledge` | Parameterize | Good core workflow, but guardrails reference local workspace policy such as Docker-only product execution, no auto-push, and explicit live activation. These should become overlay guardrails. |
+| `durable-learning-capture` | Parameterized | Now routes by durable-home category and asks for the local parameter map before writing global files. |
+| `research-to-knowledge` | Parameterized | Now references local guardrails and durable homes without embedding detection-platform-metal policy examples. |
 | `session-hygiene` | Workspace overlay | Depends on `/workspace/detection-platform-metal-work/`, `/workspace/tools/agents/sessionctl`, tmux, Claude/Codex launch helpers, and task-resumability paths. The portable core should be a generic resume/session-record pattern. |
 | `skill-maintainer` | Split required | Describes Claude/Codex shared skill layout, live `/workspace/agent-skills/`, provider mirrors, and `/workspace/tools/skills/skillctl`. Needs a portable skill schema plus workspace/provider adapter implementation. |
 | `task-closeoff` | Workspace overlay | Depends on `/workspace/detection-platform-metal-work/`, `/workspace/datasets/`, sessionctl, worktrees, and detection archive policy. A portable core could define closeoff phases; this implementation belongs in the detection overlay. |
@@ -58,9 +62,9 @@ SKILLCTL_CANONICAL_DIR=<generated>/agent-skills/skills /workspace/tools/skills/s
    - session index command,
    - provider mirror paths.
 2. Convert near-portable skills first:
-   - `agents-md-review`,
-   - `durable-learning-capture`,
-   - `research-to-knowledge`.
+   - `agents-md-review` (done),
+   - `durable-learning-capture` (done),
+   - `research-to-knowledge` (done).
 3. Split provider-specific command details:
    - move `call-a-friend` provider commands into `providers/claude/` and
      `providers/codex/` mappings or provider references.

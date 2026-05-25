@@ -24,5 +24,17 @@ detection-platform-metal assumptions. Those need parameterization or a split
 between portable core instructions and workspace-specific references before
 they become true core skills.
 
+Parameterization started with the near-portable review and knowledge skills:
+`agents-md-review`, `durable-learning-capture`, and
+`research-to-knowledge`. Portable skills should use a local parameter map for
+paths, commands, and activation boundaries instead of embedding workspace
+values directly.
+
+Template:
+`core/templates/skill-parameter-map.md`
+
+Detection-platform-metal map:
+`workspaces/detection-platform-metal/specs/core-skill-parameter-map.md`
+
 Portability audit:
 `docs/reviews/2026-05-25-core-skill-portability-audit.md`

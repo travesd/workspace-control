@@ -1,22 +1,32 @@
 ---
 name: agents-md-review
-description: Review AGENTS.md and shared skills for stale factual claims, missing verification metadata, and instruction drift.
+description: Review always-loaded agent instructions and shared skills for stale factual claims, missing verification metadata, and instruction drift.
 ---
 
-# AGENTS.md Review
+# Agent Instruction Review
 
-Use this skill when a user flags workspace guidance as wrong, before major instruction rewrites, or during periodic workspace hygiene.
+Use this skill when a user flags agent guidance as wrong, before major
+instruction rewrites, or during periodic workspace hygiene.
 
 ## Workflow
 
-1. Identify concrete factual claims in `AGENTS.md` or shared skills that can drift.
-2. Verify each claim against live files, tool output, or authoritative docs.
-3. Mark unverifiable claims as needing review instead of asserting them.
-4. Propose edits that keep always-loaded instructions concise.
-5. Move detailed rationale to `knowledge/` or ADRs where appropriate.
+1. Identify the local instruction contract, provider wrappers, shared skills,
+   knowledge notes, and decision-record paths from the local parameter map or
+   workspace instructions.
+2. Identify concrete factual claims in always-loaded instructions or shared
+   skills that can drift.
+3. Verify each claim against live files, tool output, authoritative docs, or
+   dated task evidence.
+4. Mark unverifiable claims as needing review instead of asserting them.
+5. Propose edits that keep always-loaded instructions concise.
+6. Move detailed rationale to local knowledge notes, reference docs, or
+   decision records where appropriate.
 
 ## Guardrails
 
-- Do not clutter `AGENTS.md` with excessive metadata.
+- Do not clutter always-loaded instructions with excessive metadata.
 - Prefer source paths, verification dates, and re-check conditions for facts with known freshness risk.
-- Do not change provider-specific files without checking whether the canonical source should change first.
+- Do not change provider-specific files without checking whether the canonical
+  source should change first.
+- If no local parameter map exists, state the assumed instruction, knowledge,
+  and decision-record locations before editing.
