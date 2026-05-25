@@ -210,23 +210,60 @@ copy_skill() {
 
   name="$(basename "$src")"
   dst="$target_root/$name"
-  mkdir -p "$dst"
 
-  if [ -e "$dst/SKILL.md" ] && [ ! -f "$dst/.skillctl-managed" ]; then
-    printf 'ERROR: refusing to overwrite unmanaged skill mirror: %s\n' "$dst" >&2
+  if [ -L "$dst" ]; then
+    printf 'ERROR: refusing to overwrite symlinked skill mirror: %s\n' "$dst" >&2
     return 1
   fi
 
+  if [ -e "$dst" ]; then
+    if [ ! -d "$dst" ] || [ ! -f "$dst/.skillctl-managed" ]; then
+      printf 'ERROR: refusing to overwrite unmanaged skill mirror: %s\n' "$dst" >&2
+      return 1
+    fi
+    rm -rf "$dst"
+  fi
+
+  mkdir -p "$dst"
   cp -a "$src"/. "$dst"/
   printf 'source=%s\n' "$src" > "$dst/.skillctl-managed"
   printf 'synced=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$dst/.skillctl-managed"
   printf 'synced %s -> %s\n' "$name" "$target_root"
 }
 
+prune_mirror_root() {
+  local target_root="$1"
+  local mirror_dir
+  local name
+  local failed=0
+
+  [ -d "$target_root" ] || return 0
+
+  while IFS= read -r -d '' mirror_dir; do
+    name="$(basename "$mirror_dir")"
+    if [ -d "$CANONICAL_DIR/$name" ]; then
+      continue
+    fi
+
+    if [ -f "$mirror_dir/.skillctl-managed" ]; then
+      rm -rf "$mirror_dir"
+      printf 'removed stale managed mirror %s\n' "$mirror_dir"
+      continue
+    fi
+
+    printf 'ERROR: refusing to remove unmanaged skill mirror: %s\n' "$mirror_dir" >&2
+    failed=1
+  done < <(find "$target_root" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
+
+  return "$failed"
+}
+
 cmd_sync() {
   cmd_validate
 
   mkdir -p "$CLAUDE_DIR" "$CODEX_DIR"
+  prune_mirror_root "$CLAUDE_DIR"
+  prune_mirror_root "$CODEX_DIR"
 
   while IFS= read -r skill_dir; do
     [ -n "$skill_dir" ] || continue

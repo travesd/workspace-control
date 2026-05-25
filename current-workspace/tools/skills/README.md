@@ -28,3 +28,6 @@ The canonical source is `/workspace/agent-skills/skills/`. Provider mirrors are 
 - Do not require provider-only tools in canonical skills.
 - Put provider-specific metadata beside the canonical skill, such as `agents/openai.yaml` or provider notes.
 - Validate before syncing mirrors.
+- `skillctl sync` rebuilds managed provider mirrors and removes stale managed
+  mirror directories. It refuses unmanaged mirrors instead of overwriting or
+  deleting them.
