@@ -1,0 +1,15 @@
+# metal-preflight
+command: /workspace/workspace-control/tools/workflowctl preflight --task-path /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+
+# Workflow Preflight
+- task_path: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+- active_rules: present
+- kernel_spec: present
+
+## Warnings
+- none
+
+## Blockers
+- none
+
+exit_status=0

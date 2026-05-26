@@ -1,0 +1,8 @@
+# docs-context-pack
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul --max-bytes 5000
+
+# Context Pack Written
+- task_path: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+- output: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul/artifacts/context-pack-20260526T201558Z.md
+
+exit_status=0

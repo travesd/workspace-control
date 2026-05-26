@@ -1,0 +1,16 @@
+# agentic-close-check
+command: /workspace/workspace-control/tools/workflowctl close-check --task-path /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+
+# Workflow Close Check
+- task_path: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+- task_root: /workspace/detection-agentic-workflows-work
+- durable_learning_route: none
+
+## Warnings
+- closeoff.cleanup_decision is empty
+
+## Blockers
+- SUMMARY.md missing
+- no validation entries recorded
+
+exit_status=1

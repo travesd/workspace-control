@@ -735,6 +735,11 @@ cmd_context_pack() {
   workflow_file="$(workflow_file_for "$task_path")"
   ledger_file="$(ledger_file_for "$task_path")"
   experiment_file="$(experiment_file_for "$task_path")"
+  if [ "$output" != "-" ] && [ -f "$workflow_file" ]; then
+    tmp="$(mktemp)"
+    jq --arg output "$output" '.surfaces.context_pack = $output' "$workflow_file" > "$tmp"
+    mv "$tmp" "$workflow_file"
+  fi
   tmp="$(mktemp)"
   {
     echo "# Workflow Context Pack"
@@ -793,11 +798,6 @@ cmd_context_pack() {
     rm -f "$tmp"
   else
     mv "$tmp" "$output"
-    if [ -f "$workflow_file" ]; then
-      tmp="$(mktemp)"
-      jq --arg output "$output" '.surfaces.context_pack = $output' "$workflow_file" > "$tmp"
-      mv "$tmp" "$workflow_file"
-    fi
     echo "# Context Pack Written"
     echo "- task_path: $task_path"
     echo "- output: $output"

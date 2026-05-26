@@ -1,0 +1,15 @@
+# docs-preflight
+command: /workspace/workspace-control/tools/workflowctl preflight --task-path /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+
+# Workflow Preflight
+- task_path: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+- active_rules: present
+- kernel_spec: present
+
+## Warnings
+- resume.md missing
+
+## Blockers
+- none
+
+exit_status=0

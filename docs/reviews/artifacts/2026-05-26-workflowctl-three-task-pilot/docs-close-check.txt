@@ -1,0 +1,17 @@
+# docs-close-check
+command: /workspace/workspace-control/tools/workflowctl close-check --task-path /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+
+# Workflow Close Check
+- task_path: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+- task_root: none
+- durable_learning_route: none
+
+## Warnings
+- closeoff.cleanup_decision is empty
+- docs-only workspace-control path; resume.md and SUMMARY.md may be intentionally absent
+- no validation entries recorded for investigation task
+
+## Blockers
+- none
+
+exit_status=0

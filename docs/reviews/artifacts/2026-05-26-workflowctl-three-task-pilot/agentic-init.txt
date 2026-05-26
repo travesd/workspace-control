@@ -1,0 +1,12 @@
+# agentic-init
+command: /workspace/workspace-control/tools/workflowctl init --task-path /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction --kind implementation --repo detection-agentic-workflows --request agentic\ brand\ automation\ extraction\ pilot
+
+# Workflow Initialized
+- task_path: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+- workflow: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/workflow.json
+- validation_ledger: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/validation.jsonl
+- kind: implementation
+- repo: detection-agentic-workflows
+- automation: deterministic-workflow
+
+exit_status=0

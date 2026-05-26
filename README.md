@@ -82,6 +82,7 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `docs/reviews/2026-05-21-workflow-improvements-final-review.md` - end-to-end review of final repo state against scoped improvements.
 - `docs/reviews/2026-05-22-layered-repo-organization-review.md` - review of the layered source-layout scaffold and source-of-truth boundaries.
 - `docs/reviews/2026-05-26-workflowctl-kernel-review.md` - completion review for the draft implementation automation kernel.
+- `docs/reviews/2026-05-26-workflowctl-three-task-pilot.md` - pilot results from applying workflow sidecars to one docs task, one metal task, and one agentic-workflows task.
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
 - `docs/specs/task-resumability.md` - task-first notes, resume packets, chat-dependency classification, and measurable resumability scoring.
 - `docs/specs/repo-organization.md` - proposed layered source model for core, workspace overlays, provider adapters, and live compatibility outputs.

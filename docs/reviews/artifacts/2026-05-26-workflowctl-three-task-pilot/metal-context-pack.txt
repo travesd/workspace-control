@@ -1,0 +1,8 @@
+# metal-context-pack
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers --max-bytes 5000
+
+# Context Pack Written
+- task_path: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+- output: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers/artifacts/context-pack-20260526T201558Z.md
+
+exit_status=0

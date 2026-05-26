@@ -1,0 +1,12 @@
+# docs-init
+command: /workspace/workspace-control/tools/workflowctl init --task-path /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul --kind investigation --repo workspace-control --request implementation\ automation\ overhaul\ research\ pilot
+
+# Workflow Initialized
+- task_path: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+- workflow: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul/workflow.json
+- validation_ledger: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul/validation.jsonl
+- kind: investigation
+- repo: workspace-control
+- automation: deterministic-workflow
+
+exit_status=0

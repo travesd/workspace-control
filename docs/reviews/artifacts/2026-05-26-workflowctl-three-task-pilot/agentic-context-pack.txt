@@ -1,0 +1,8 @@
+# agentic-context-pack
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction --max-bytes 5000
+
+# Context Pack Written
+- task_path: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+- output: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/artifacts/context-pack-20260526T201558Z.md
+
+exit_status=0
