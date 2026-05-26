@@ -18,9 +18,11 @@ The tool is deliberately small and host-safe:
 ```text
 tools/workflowctl init --task-path <path> [--kind <kind>] [--repo <repo>] [--request <text>] [--force]
 tools/workflowctl classify --task-path <path>
+tools/workflowctl hydrate --task-path <path> [--source <resume.md>]
 tools/workflowctl preflight --task-path <path>
 tools/workflowctl status --task-path <path>
 tools/workflowctl validation add --task-path <path> --command <text> --result <result> [--package <id>] [--cwd <path>] [--evidence <text>] [--notes <text>]
+tools/workflowctl validation import --task-path <path> [--source <resume.md>] [--package <id>]
 tools/workflowctl validate --task-path <path>
 tools/workflowctl context-pack --task-path <path> [--output <path>|-] [--max-bytes <n>]
 tools/workflowctl experiment init --task-path <path> --mutable <csv> --sealed-evaluator <csv> --budget <text> --metric <text> --keep-rule <text> [--complexity-delta <text>]
@@ -81,6 +83,10 @@ by the agent or a future deterministic helper:
 repo, kind, complexity, risk, thinking mode, automation mode, and approval
 checkpoints from the path.
 
+`hydrate` reads `resume.md` or an explicit source file and updates
+`workflow.json` with obvious branch, worktree, PR, issue, and fenced validation
+plan fields. It records the source path in `preflight.hydrated_from`.
+
 `status` is read-only. It reports whether the task dir, `workflow.json`,
 `resume.md`, `SUMMARY.md`, and `validation.jsonl` exist, then summarizes
 classification, packages, approval stops, and closeoff fields.
@@ -94,8 +100,15 @@ prints warnings separately from blockers.
 command that was already run by the agent or a safe workspace tool; it does not
 execute the command.
 
+`validation import` reads historical evidence from `resume.md` and appends one
+conservative JSONL entry with `result="skipped"` and `historical=true`. This
+improves handoff without claiming a fresh validation pass. `validate` and
+`close-check` still require a passing validation entry for implementation
+closeoff.
+
 `validate` is read-only. It summarizes validation ledger entries by result and
-returns nonzero when entries are missing, failed, or blocked.
+returns nonzero when entries are missing, no passing entry exists, or failed or
+blocked entries are present.
 
 `context-pack` writes or prints a filtered handoff pack containing workflow
 summary, task notes, validation ledger, experiment ledger, and worktree status
@@ -124,6 +137,7 @@ For a new task:
 
 ```bash
 tools/workflowctl init --task-path /workspace/detection-platform-metal-work/busy/<task>
+tools/workflowctl hydrate --task-path /workspace/detection-platform-metal-work/busy/<task>
 tools/workflowctl preflight --task-path /workspace/detection-platform-metal-work/busy/<task>
 tools/workflowctl status --task-path /workspace/detection-platform-metal-work/busy/<task>
 ```
@@ -139,6 +153,12 @@ For closeoff:
 ```bash
 tools/workflowctl validate --task-path /workspace/detection-platform-metal-work/busy/<task>
 tools/workflowctl close-check --task-path /workspace/detection-platform-metal-work/busy/<task>
+```
+
+To preserve historical validation evidence without making it a fresh pass:
+
+```bash
+tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/<task>
 ```
 
 For bounded LLM/eval iteration:

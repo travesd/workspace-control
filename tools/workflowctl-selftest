@@ -18,10 +18,42 @@ echo "# workflowctl self-test"
   --repo workspace-control \
   --request "workflowctl self-test" >/dev/null
 
+cat > "$TMPDIR/task/resume.md" <<EOF
+# Resume
+
+## Current State
+
+- Branch: \`self-test-branch\`
+- Worktree: \`$ROOT\`
+
+## Validation Plan
+
+\`\`\`bash
+git diff --check
+./tools/workflowctl-selftest
+\`\`\`
+
+## Validation Results
+
+- git diff --check passed.
+- workflowctl self-test validation passed.
+EOF
+
 test -f "$TMPDIR/task/workflow.json"
 test -f "$TMPDIR/task/validation.jsonl"
 jq empty "$TMPDIR/task/workflow.json"
 jq -s empty "$TMPDIR/task/validation.jsonl"
+
+"$TOOL" hydrate --task-path "$TMPDIR/task" >/dev/null
+test "$(jq -r '.task.branch' "$TMPDIR/task/workflow.json")" = "self-test-branch"
+test "$(jq -r '.task.worktree' "$TMPDIR/task/workflow.json")" = "$ROOT"
+test "$(jq '.preflight.validation_plan | length' "$TMPDIR/task/workflow.json")" -eq 2
+
+"$TOOL" validation import --task-path "$TMPDIR/task" >/dev/null
+if "$TOOL" validate --task-path "$TMPDIR/task" >/dev/null 2>&1; then
+  echo "expected historical-only validation import not to pass validate" >&2
+  exit 1
+fi
 
 "$TOOL" validation add \
   --task-path "$TMPDIR/task" \

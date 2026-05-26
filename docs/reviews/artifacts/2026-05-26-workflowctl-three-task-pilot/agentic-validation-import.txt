@@ -1,0 +1,11 @@
+# agentic-validation-import
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+
+# Historical Validation Imported
+- task_path: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+- source: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/resume.md
+- validation_ledger: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/validation.jsonl
+- evidence_items: 10
+- result: skipped
+
+exit_status=0

@@ -1,0 +1,13 @@
+# agentic-hydrate
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+
+# Workflow Hydrated
+- task_path: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+- source: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/resume.md
+- branch: main
+- worktree: none
+- pr: none
+- issue: none
+- validation_plan_entries: 6
+
+exit_status=0

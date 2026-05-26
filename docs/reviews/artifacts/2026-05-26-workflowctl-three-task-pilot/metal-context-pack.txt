@@ -3,6 +3,6 @@ command: /workspace/workspace-control/tools/workflowctl context-pack --task-path
 
 # Context Pack Written
 - task_path: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
-- output: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers/artifacts/context-pack-20260526T201558Z.md
+- output: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers/artifacts/context-pack-20260526T204341Z.md
 
 exit_status=0

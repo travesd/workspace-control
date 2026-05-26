@@ -138,9 +138,11 @@ MVP commands:
 ```text
 workflowctl init --kind <kind> --repo <repo> --task-path <path>
 workflowctl classify --task-path <path>
+workflowctl hydrate --task-path <path>
 workflowctl preflight --task-path <path>
 workflowctl status --task-path <path>
 workflowctl validation add --task-path <path> --command <text> --result <result>
+workflowctl validation import --task-path <path>
 workflowctl validate --task-path <path>
 workflowctl context-pack --task-path <path>
 workflowctl experiment init --task-path <path>

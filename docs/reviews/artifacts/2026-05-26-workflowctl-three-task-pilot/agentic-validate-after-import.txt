@@ -1,0 +1,18 @@
+# agentic-validate-after-import
+command: /workspace/workspace-control/tools/workflowctl validate --task-path /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+
+# Validation Ledger
+- task_path: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction
+- validation_ledger: /workspace/detection-agentic-workflows-work/busy/brand-automation-extraction/validation.jsonl
+- validation_entries: 1
+- passing_entries: 0
+- historical_entries: 1
+
+## Results
+- skipped: 1
+
+## Blockers
+- no passing validation entries recorded
+- skipped entries do not count as fresh validation passes
+
+exit_status=1

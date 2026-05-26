@@ -1,0 +1,6 @@
+# docs-hydrate
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul
+
+workflowctl: hydrate source does not exist: /workspace/workspace-control/docs/research/2026-05-26-implementation-automation-overhaul/resume.md
+
+exit_status=2

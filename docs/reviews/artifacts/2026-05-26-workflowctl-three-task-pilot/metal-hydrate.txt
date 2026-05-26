@@ -1,0 +1,13 @@
+# metal-hydrate
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+
+# Workflow Hydrated
+- task_path: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+- source: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers/resume.md
+- branch: feat/brand-automation-corpus-llm-workers
+- worktree: /workspace/detection-platform-metal.worktrees/feat-brand-automation-corpus-llm-workers
+- pr: none
+- issue: none
+- validation_plan_entries: 0
+
+exit_status=0

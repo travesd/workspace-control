@@ -1,0 +1,11 @@
+# metal-validation-import
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+
+# Historical Validation Imported
+- task_path: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+- source: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers/resume.md
+- validation_ledger: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers/validation.jsonl
+- evidence_items: 12
+- result: skipped
+
+exit_status=0

@@ -1,0 +1,17 @@
+# metal-close-check-after-import
+command: /workspace/workspace-control/tools/workflowctl close-check --task-path /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+
+# Workflow Close Check
+- task_path: /workspace/detection-platform-metal-work/busy/brand-automation-corpus-llm-workers
+- task_root: /workspace/detection-platform-metal-work
+- durable_learning_route: none
+
+## Warnings
+- closeoff.cleanup_decision is empty
+- skipped validation entries are historical or non-fresh evidence only
+
+## Blockers
+- SUMMARY.md missing
+- no passing validation entries recorded
+
+exit_status=1

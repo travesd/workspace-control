@@ -17,9 +17,11 @@ usage() {
 usage:
   tools/workflowctl init --task-path <path> [--kind <kind>] [--repo <repo>] [--request <text>] [--force]
   tools/workflowctl classify --task-path <path>
+  tools/workflowctl hydrate --task-path <path> [--source <resume.md>]
   tools/workflowctl preflight --task-path <path>
   tools/workflowctl status --task-path <path>
   tools/workflowctl validation add --task-path <path> --command <text> --result <result> [--package <id>] [--cwd <path>] [--evidence <text>] [--notes <text>]
+  tools/workflowctl validation import --task-path <path> [--source <resume.md>] [--package <id>]
   tools/workflowctl validate --task-path <path>
   tools/workflowctl context-pack --task-path <path> [--output <path>|-] [--max-bytes <n>]
   tools/workflowctl experiment init --task-path <path> --mutable <csv> --sealed-evaluator <csv> --budget <text> --metric <text> --keep-rule <text> [--complexity-delta <text>]
@@ -266,6 +268,82 @@ read_workflow_field() {
   jq -r --arg fallback "$fallback" "($filter) // \$fallback" "$workflow_file"
 }
 
+extract_resume_json() {
+  local source="$1"
+  perl -Mstrict -Mwarnings -MJSON::PP -e '
+    my $path = shift @ARGV;
+    open my $fh, "<", $path or die "open $path: $!";
+    my %out = (
+      branch => "",
+      worktree => "",
+      pr => "",
+      issue => "",
+      validation_plan => [],
+      validation_evidence => [],
+    );
+    my ($in_validation_plan, $in_results, $in_fence) = (0, 0, 0);
+    while (my $line = <$fh>) {
+      chomp $line;
+      my $trim = $line;
+      $trim =~ s/^\s+|\s+$//g;
+
+      if (!$out{branch} && $trim =~ /^[-*]?\s*Branch:\s*`?([^`]+?)`?\s*$/i) {
+        $out{branch} = $1;
+      }
+      if (!$out{worktree} && $trim =~ /^[-*]?\s*Worktree:\s*`?([^`]+?)`?\s*$/i) {
+        $out{worktree} = $1;
+      }
+      if (!$out{pr} && $trim =~ /^[-*]?\s*PR:\s*`?([^`]+?)`?\s*$/i) {
+        $out{pr} = $1;
+      }
+      if (!$out{issue} && $trim =~ /^[-*]?\s*Issue:\s*`?([^`]+?)`?\s*$/i) {
+        $out{issue} = $1;
+      }
+
+      if ($trim =~ /^##\s+Validation Plan\b/i) {
+        $in_validation_plan = 1;
+        $in_results = 0;
+        $in_fence = 0;
+        next;
+      }
+      if ($trim =~ /^##\s+Validation Results\b/i || $trim =~ /^##\s+Session Notes\b/i) {
+        $in_results = 1;
+        $in_validation_plan = 0;
+        $in_fence = 0;
+        next;
+      }
+      if ($trim =~ /^##\s+/) {
+        $in_validation_plan = 0;
+        $in_results = 0;
+        $in_fence = 0;
+      }
+
+      if ($in_validation_plan && $trim =~ /^```/) {
+        $in_fence = !$in_fence;
+        next;
+      }
+      if ($in_validation_plan && $in_fence && length $trim && $trim !~ /^#/) {
+        push @{$out{validation_plan}}, $trim;
+      }
+
+      if ($in_results && $trim =~ /^[-*]\s+(.+)/) {
+        my $item = $1;
+        if ($item =~ /(passed|returned|produced|completed|validation|test|docker|compose|git diff|node --check|config --quiet)/i) {
+          push @{$out{validation_evidence}}, $item if @{$out{validation_evidence}} < 12;
+        }
+      }
+    }
+    close $fh;
+
+    for my $key (qw(branch worktree pr issue)) {
+      $out{$key} =~ s/^\s+|\s+$//g;
+    }
+    my %seen;
+    @{$out{validation_plan}} = grep { !$seen{$_}++ } @{$out{validation_plan}};
+    print JSON::PP->new->canonical->encode(\%out);
+  ' "$source"
+}
+
 is_sensitive_path() {
   local path name
   path="$1"
@@ -492,6 +570,60 @@ cmd_classify() {
   fi
 }
 
+cmd_hydrate() {
+  need_jq
+  local task_path="" source="" workflow_file extracted tmp branch worktree pr issue validation_count
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --source) source="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown hydrate argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "hydrate requires --task-path"
+  [ -d "$task_path" ] || die "task path does not exist: $task_path"
+  [ -n "$source" ] || source="$task_path/resume.md"
+  [ -f "$source" ] || die "hydrate source does not exist: $source"
+  workflow_file="$(workflow_file_for "$task_path")"
+  [ -f "$workflow_file" ] || die "workflow.json missing; run workflowctl init first"
+  jq empty "$workflow_file" >/dev/null
+
+  extracted="$(extract_resume_json "$source")"
+  branch="$(jq -r '.branch // ""' <<< "$extracted")"
+  worktree="$(jq -r '.worktree // ""' <<< "$extracted")"
+  pr="$(jq -r '.pr // ""' <<< "$extracted")"
+  issue="$(jq -r '.issue // ""' <<< "$extracted")"
+  validation_count="$(jq '.validation_plan | length' <<< "$extracted")"
+
+  tmp="$(mktemp)"
+  jq \
+    --argjson extracted "$extracted" \
+    --arg source "$source" \
+    --arg updated "$(now_utc)" \
+    '
+    .updated = $updated
+    | .task.branch = (if ($extracted.branch // "") != "" then $extracted.branch else (.task.branch // "") end)
+    | .task.worktree = (if ($extracted.worktree // "") != "" then $extracted.worktree else (.task.worktree // "") end)
+    | .task.pr = (if ($extracted.pr // "") != "" then $extracted.pr else (.task.pr // "") end)
+    | .task.issue = (if ($extracted.issue // "") != "" then $extracted.issue else (.task.issue // "") end)
+    | .preflight.task_resume_checked = true
+    | .preflight.worktree_checked = ((if ($extracted.worktree // "") != "" then true else (.preflight.worktree_checked // false) end))
+    | .preflight.validation_plan = (if (($extracted.validation_plan // []) | length) > 0 then $extracted.validation_plan else (.preflight.validation_plan // []) end)
+    | .preflight.hydrated_from = $source
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  echo "# Workflow Hydrated"
+  echo "- task_path: $task_path"
+  echo "- source: $source"
+  echo "- branch: ${branch:-none}"
+  echo "- worktree: ${worktree:-none}"
+  echo "- pr: ${pr:-none}"
+  echo "- issue: ${issue:-none}"
+  echo "- validation_plan_entries: $validation_count"
+}
+
 cmd_status() {
   need_jq
   local task_path="" workflow_file ledger_file
@@ -591,6 +723,60 @@ cmd_validation_add() {
   echo "- result: $result"
 }
 
+cmd_validation_import() {
+  need_jq
+  local task_path="" source="" package="P0" ledger_file extracted evidence_count
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --source) source="$(normalize_path "${2:-}")"; shift 2 ;;
+      --package) package="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown validation import argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "validation import requires --task-path"
+  [ -d "$task_path" ] || die "task path does not exist: $task_path"
+  [ -n "$source" ] || source="$task_path/resume.md"
+  [ -f "$source" ] || die "validation import source does not exist: $source"
+
+  extracted="$(extract_resume_json "$source")"
+  evidence_count="$(jq '.validation_evidence | length' <<< "$extracted")"
+  [ "$evidence_count" -gt 0 ] || die "no historical validation evidence found in $source"
+
+  ensure_ledger "$task_path"
+  ledger_file="$(ledger_file_for "$task_path")"
+  jq -c -n \
+    --arg type "validation" \
+    --arg time "$(now_utc)" \
+    --arg package "$package" \
+    --arg command "historical validation evidence import" \
+    --arg cwd "$task_path" \
+    --arg result "skipped" \
+    --arg evidence "$source" \
+    --arg notes "Historical resume evidence only; this is not a fresh validation pass." \
+    --argjson extracted "$extracted" \
+    '{
+      type:$type,
+      time:$time,
+      package:$package,
+      command:$command,
+      cwd:$cwd,
+      result:$result,
+      evidence:$evidence,
+      notes:$notes,
+      historical:true,
+      source_excerpt:($extracted.validation_evidence // [])
+    }' >> "$ledger_file"
+
+  echo "# Historical Validation Imported"
+  echo "- task_path: $task_path"
+  echo "- source: $source"
+  echo "- validation_ledger: $ledger_file"
+  echo "- evidence_items: $evidence_count"
+  echo "- result: skipped"
+}
+
 cmd_preflight() {
   need_jq
   local task_path="" workflow_file repo kind worktree validation_count root
@@ -657,7 +843,7 @@ cmd_preflight() {
 
 cmd_validate() {
   need_jq
-  local task_path="" ledger_file entries failures blocked
+  local task_path="" ledger_file entries failures blocked passes historical skipped
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
@@ -679,9 +865,14 @@ cmd_validate() {
   fi
   jq -s empty "$ledger_file" >/dev/null
   entries="$(jq -s '[.[] | select(.type == "validation")] | length' "$ledger_file")"
+  passes="$(jq -s '[.[] | select(.type == "validation" and .result == "pass")] | length' "$ledger_file")"
   failures="$(jq -s '[.[] | select(.type == "validation" and .result == "fail")] | length' "$ledger_file")"
   blocked="$(jq -s '[.[] | select(.type == "validation" and .result == "blocked")] | length' "$ledger_file")"
+  skipped="$(jq -s '[.[] | select(.type == "validation" and .result == "skipped")] | length' "$ledger_file")"
+  historical="$(jq -s '[.[] | select(.type == "validation" and .historical == true)] | length' "$ledger_file")"
   echo "- validation_entries: $entries"
+  echo "- passing_entries: $passes"
+  echo "- historical_entries: $historical"
   echo
   echo "## Results"
   jq -r -s '
@@ -692,12 +883,14 @@ cmd_validate() {
         | .[]
       end
   ' "$ledger_file"
-  if [ "$entries" -eq 0 ] || [ "$failures" -gt 0 ] || [ "$blocked" -gt 0 ]; then
+  if [ "$entries" -eq 0 ] || [ "$passes" -eq 0 ] || [ "$failures" -gt 0 ] || [ "$blocked" -gt 0 ]; then
     echo
     echo "## Blockers"
     [ "$entries" -gt 0 ] || echo "- no validation entries recorded"
+    [ "$passes" -gt 0 ] || echo "- no passing validation entries recorded"
     [ "$failures" -eq 0 ] || echo "- failing validation entries recorded"
     [ "$blocked" -eq 0 ] || echo "- blocked validation entries recorded"
+    [ "$skipped" -eq 0 ] || echo "- skipped entries do not count as fresh validation passes"
     return 1
   fi
 }
@@ -1002,7 +1195,7 @@ cmd_export() {
 cmd_metrics() {
   need_jq
   local root="$WORKSPACE_ROOT/detection-platform-metal-work" task workflow_file ledger_file route validation_entries
-  local total=0 with_workflow=0 with_resume=0 with_summary=0 with_validation=0 with_validation_entries=0 with_learning_route=0 with_context_pack=0 with_experiment_contract=0
+  local total=0 with_workflow=0 with_resume=0 with_summary=0 with_validation=0 with_validation_entries=0 with_passing_validation=0 with_learning_route=0 with_context_pack=0 with_experiment_contract=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --root) root="$(normalize_path "${2:-}")"; shift 2 ;;
@@ -1036,6 +1229,9 @@ cmd_metrics() {
       with_validation=$((with_validation + 1))
       validation_entries="$(jq -s '[.[] | select(.type == "validation")] | length' "$ledger_file")"
       [ "$validation_entries" -gt 0 ] && with_validation_entries=$((with_validation_entries + 1))
+      if [ "$(jq -s '[.[] | select(.type == "validation" and .result == "pass")] | length' "$ledger_file")" -gt 0 ]; then
+        with_passing_validation=$((with_passing_validation + 1))
+      fi
     fi
   done < <(find "$root" -mindepth 2 -maxdepth 2 -type d \( -path "$root/busy/*" -o -path "$root/parked/*" -o -path "$root/done/*" -o -path "$root/archived/*" -o -path "$root/investigations/*" \) -print0 2>/dev/null)
 
@@ -1047,6 +1243,7 @@ cmd_metrics() {
   echo "- with_summary_md: $with_summary"
   echo "- with_validation_jsonl: $with_validation"
   echo "- with_validation_entries: $with_validation_entries"
+  echo "- with_passing_validation: $with_passing_validation"
   echo "- with_durable_learning_route: $with_learning_route"
   echo "- with_context_pack: $with_context_pack"
   echo "- with_experiment_contract: $with_experiment_contract"
@@ -1054,7 +1251,7 @@ cmd_metrics() {
 
 cmd_close_check() {
   need_jq
-  local task_path="" workflow_file ledger_file root route kind validation_entries
+  local task_path="" workflow_file ledger_file root route kind validation_entries passing_entries skipped_entries
   local blockers=() warnings=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -1104,11 +1301,19 @@ cmd_close_check() {
   else
     jq -s empty "$ledger_file" >/dev/null
     validation_entries="$(jq -s '[.[] | select(.type == "validation")] | length' "$ledger_file")"
+    passing_entries="$(jq -s '[.[] | select(.type == "validation" and .result == "pass")] | length' "$ledger_file")"
+    skipped_entries="$(jq -s '[.[] | select(.type == "validation" and .result == "skipped")] | length' "$ledger_file")"
     if [ "$validation_entries" -eq 0 ]; then
       case "$kind" in
         investigation|review) warnings+=("no validation entries recorded for $kind task") ;;
         *) blockers+=("no validation entries recorded") ;;
       esac
+    elif [ "$passing_entries" -eq 0 ]; then
+      case "$kind" in
+        investigation|review) warnings+=("no passing validation entries recorded for $kind task") ;;
+        *) blockers+=("no passing validation entries recorded") ;;
+      esac
+      [ "$skipped_entries" -eq 0 ] || warnings+=("skipped validation entries are historical or non-fresh evidence only")
     fi
   fi
 
@@ -1137,6 +1342,7 @@ cmd="${1:-}"
 case "$cmd" in
   init) shift; cmd_init "$@" ;;
   classify) shift; cmd_classify "$@" ;;
+  hydrate) shift; cmd_hydrate "$@" ;;
   preflight) shift; cmd_preflight "$@" ;;
   status) shift; cmd_status "$@" ;;
   validation)
@@ -1144,6 +1350,7 @@ case "$cmd" in
     subcmd="${1:-}"
     case "$subcmd" in
       add) shift; cmd_validation_add "$@" ;;
+      import) shift; cmd_validation_import "$@" ;;
       -h|--help|"") usage ;;
       *) usage >&2; exit 2 ;;
     esac
