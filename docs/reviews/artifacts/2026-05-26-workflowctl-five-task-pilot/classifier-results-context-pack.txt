@@ -1,0 +1,8 @@
+# classifier-results-context-pack
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/detection-platform-metal-work/busy/classifier-results-browser --max-bytes 7000
+
+# Context Pack Written
+- task_path: /workspace/detection-platform-metal-work/busy/classifier-results-browser
+- output: /workspace/detection-platform-metal-work/busy/classifier-results-browser/artifacts/context-pack-20260526T210659Z.md
+
+exit_status=0

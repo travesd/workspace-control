@@ -1,0 +1,13 @@
+# client-threat-intel-hydrate
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+
+# Workflow Hydrated
+- task_path: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+- source: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports/resume.md
+- branch: none
+- worktree: none
+- pr: none
+- issue: none
+- validation_plan_entries: 0
+
+exit_status=0

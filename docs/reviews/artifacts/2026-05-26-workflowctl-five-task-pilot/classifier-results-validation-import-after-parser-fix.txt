@@ -1,0 +1,11 @@
+# classifier-results-validation-import-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/classifier-results-browser
+
+# Historical Validation Imported
+- task_path: /workspace/detection-platform-metal-work/busy/classifier-results-browser
+- source: /workspace/detection-platform-metal-work/busy/classifier-results-browser/resume.md
+- validation_ledger: /workspace/detection-platform-metal-work/busy/classifier-results-browser/validation.jsonl
+- evidence_items: 10
+- result: skipped
+
+exit_status=0

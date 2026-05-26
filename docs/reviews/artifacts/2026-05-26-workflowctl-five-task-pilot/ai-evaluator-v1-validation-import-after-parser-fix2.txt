@@ -1,0 +1,11 @@
+# ai-evaluator-v1-validation-import-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+
+# Historical Validation Imported
+- task_path: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+- source: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/resume.md
+- validation_ledger: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/validation.jsonl
+- evidence_items: 4
+- result: skipped
+
+exit_status=0

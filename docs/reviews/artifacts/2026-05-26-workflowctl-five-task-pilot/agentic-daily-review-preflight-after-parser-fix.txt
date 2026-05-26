@@ -1,0 +1,15 @@
+# agentic-daily-review-preflight-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl preflight --task-path /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+
+# Workflow Preflight
+- task_path: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+- active_rules: present
+- kernel_spec: present
+
+## Warnings
+- none
+
+## Blockers
+- none
+
+exit_status=0

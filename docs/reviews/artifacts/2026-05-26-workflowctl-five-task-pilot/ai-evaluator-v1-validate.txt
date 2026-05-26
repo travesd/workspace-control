@@ -1,0 +1,18 @@
+# ai-evaluator-v1-validate
+command: /workspace/workspace-control/tools/workflowctl validate --task-path /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+
+# Validation Ledger
+- task_path: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+- validation_ledger: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/validation.jsonl
+- validation_entries: 0
+- passing_entries: 0
+- historical_entries: 0
+
+## Results
+- none
+
+## Blockers
+- no validation entries recorded
+- no passing validation entries recorded
+
+exit_status=1

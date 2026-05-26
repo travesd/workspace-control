@@ -1,0 +1,13 @@
+# classifier-results-hydrate-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-platform-metal-work/busy/classifier-results-browser
+
+# Workflow Hydrated
+- task_path: /workspace/detection-platform-metal-work/busy/classifier-results-browser
+- source: /workspace/detection-platform-metal-work/busy/classifier-results-browser/resume.md
+- branch: feat/classifier-results-browser-pr
+- worktree: /workspace/detection-platform-metal.worktrees/feat-classifier-results-browser-pr
+- pr: https://github.com/phishfort/detection-platform-metal/pull/104
+- issue: none
+- validation_plan_entries: 0
+
+exit_status=0

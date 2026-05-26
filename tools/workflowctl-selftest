@@ -23,8 +23,9 @@ cat > "$TMPDIR/task/resume.md" <<EOF
 
 ## Current State
 
-- Branch: \`self-test-branch\`
-- Worktree: \`$ROOT\`
+- **Branch:** \`self-test-branch\`
+- **Worktree:** \`$ROOT\`
+- pnpm validate GREEN.
 
 ## Validation Plan
 
@@ -33,10 +34,6 @@ git diff --check
 ./tools/workflowctl-selftest
 \`\`\`
 
-## Validation Results
-
-- git diff --check passed.
-- workflowctl self-test validation passed.
 EOF
 
 test -f "$TMPDIR/task/workflow.json"

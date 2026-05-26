@@ -1,0 +1,6 @@
+# ai-evaluator-v1-validation-import
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+
+workflowctl: no historical validation evidence found in /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/resume.md
+
+exit_status=2

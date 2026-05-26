@@ -1,0 +1,13 @@
+# agentic-daily-review-hydrate-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+
+# Workflow Hydrated
+- task_path: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+- source: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows/resume.md
+- branch: none
+- worktree: /workspace/detection-agentic-workflows.worktrees/feat-daily-result-review/
+- pr: none
+- issue: none
+- validation_plan_entries: 0
+
+exit_status=0

@@ -1,0 +1,12 @@
+# ai-evaluator-v1-init
+command: /workspace/workspace-control/tools/workflowctl init --task-path /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1 --repo detection-platform-metal --kind implementation
+
+# Workflow Initialized
+- task_path: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+- workflow: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/workflow.json
+- validation_ledger: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/validation.jsonl
+- kind: implementation
+- repo: detection-platform-metal
+- automation: deterministic-workflow
+
+exit_status=0

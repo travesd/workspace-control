@@ -233,6 +233,20 @@ task_root_for_path() {
   esac
 }
 
+infer_worktree_from_branch() {
+  local repo="$1" branch="$2" branch_dir root candidate
+  [ -n "$branch" ] || return 1
+  branch_dir="${branch//\//-}"
+  case "$repo" in
+    detection-platform-metal) root="$WORKSPACE_ROOT/detection-platform-metal.worktrees" ;;
+    detection-agentic-workflows) root="$WORKSPACE_ROOT/detection-agentic-workflows.worktrees" ;;
+    *) return 1 ;;
+  esac
+  candidate="$root/$branch_dir"
+  [ -d "$candidate" ] || return 1
+  printf '%s\n' "$candidate"
+}
+
 workflow_file_for() {
   printf '%s/workflow.json\n' "$1"
 }
@@ -286,18 +300,34 @@ extract_resume_json() {
       chomp $line;
       my $trim = $line;
       $trim =~ s/^\s+|\s+$//g;
+      my $label = $trim;
+      $label =~ s/^[-*]\s+//;
+      $label =~ s/^\*\*([^*]+):\*\*/$1:/;
 
-      if (!$out{branch} && $trim =~ /^[-*]?\s*Branch:\s*`?([^`]+?)`?\s*$/i) {
-        $out{branch} = $1;
+      if (!$out{branch} && $label =~ /^Branch:\s*(.+)$/i) {
+        my $value = $1;
+        $value = $1 if $value =~ /`([^`]+)`/;
+        $value =~ s/\s+\(.*$//;
+        $value =~ s/^\s+|\s+$//g;
+        $out{branch} = $value;
       }
-      if (!$out{worktree} && $trim =~ /^[-*]?\s*Worktree:\s*`?([^`]+?)`?\s*$/i) {
-        $out{worktree} = $1;
+      if (!$out{worktree} && $label =~ /^Worktree:\s*(.+)$/i) {
+        my $value = $1;
+        $value = $1 if $value =~ /`([^`]+)`/;
+        $value =~ s/^\s+|\s+$//g;
+        $out{worktree} = $value;
       }
-      if (!$out{pr} && $trim =~ /^[-*]?\s*PR:\s*`?([^`]+?)`?\s*$/i) {
-        $out{pr} = $1;
+      if (!$out{pr} && $label =~ /^(?:PR|PR \/ issue):\s*(.+)$/i) {
+        my $value = $1;
+        $value = $1 if $value =~ /`([^`]+)`/;
+        $value =~ s/^\s+|\s+$//g;
+        $out{pr} = $value;
       }
-      if (!$out{issue} && $trim =~ /^[-*]?\s*Issue:\s*`?([^`]+?)`?\s*$/i) {
-        $out{issue} = $1;
+      if (!$out{issue} && $label =~ /^Issue:\s*(.+)$/i) {
+        my $value = $1;
+        $value = $1 if $value =~ /`([^`]+)`/;
+        $value =~ s/^\s+|\s+$//g;
+        $out{issue} = $value;
       }
 
       if ($trim =~ /^##\s+Validation Plan\b/i) {
@@ -306,9 +336,21 @@ extract_resume_json() {
         $in_fence = 0;
         next;
       }
-      if ($trim =~ /^##\s+Validation Results\b/i || $trim =~ /^##\s+Session Notes\b/i) {
+      if ($trim =~ /^##\s+(Validation Results|Current Validation|Current State|Status|Session Notes)\b/i) {
         $in_results = 1;
         $in_validation_plan = 0;
+        $in_fence = 0;
+        next;
+      }
+      if ($label =~ /^Current validation:\s*$/i) {
+        $in_results = 1;
+        $in_validation_plan = 0;
+        $in_fence = 0;
+        next;
+      }
+      if ($label =~ /^(Next action|Next Step|Validation to run|Guardrails|Decisions ratified|Work Context|Sessions):\s*$/i) {
+        $in_validation_plan = 0;
+        $in_results = 0;
         $in_fence = 0;
         next;
       }
@@ -328,7 +370,7 @@ extract_resume_json() {
 
       if ($in_results && $trim =~ /^[-*]\s+(.+)/) {
         my $item = $1;
-        if ($item =~ /(passed|returned|produced|completed|validation|test|docker|compose|git diff|node --check|config --quiet)/i) {
+        if ($item =~ /(passed|green|returned|produced|completed|validation|validate|tests?|docker|compose|browser mcp|build|health checks|git diff|pnpm|vitest|node --check|config --quiet|zero console|0 broken)/i) {
           push @{$out{validation_evidence}}, $item if @{$out{validation_evidence}} < 12;
         }
       }
@@ -340,6 +382,8 @@ extract_resume_json() {
     }
     my %seen;
     @{$out{validation_plan}} = grep { !$seen{$_}++ } @{$out{validation_plan}};
+    %seen = ();
+    @{$out{validation_evidence}} = grep { !$seen{$_}++ } @{$out{validation_evidence}};
     print JSON::PP->new->canonical->encode(\%out);
   ' "$source"
 }
@@ -572,7 +616,7 @@ cmd_classify() {
 
 cmd_hydrate() {
   need_jq
-  local task_path="" source="" workflow_file extracted tmp branch worktree pr issue validation_count
+  local task_path="" source="" workflow_file extracted tmp repo branch worktree pr issue validation_count inferred_worktree
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
@@ -590,25 +634,31 @@ cmd_hydrate() {
   jq empty "$workflow_file" >/dev/null
 
   extracted="$(extract_resume_json "$source")"
+  repo="$(read_workflow_field "$workflow_file" '.task.repo' "$(infer_repo "$task_path")")"
   branch="$(jq -r '.branch // ""' <<< "$extracted")"
   worktree="$(jq -r '.worktree // ""' <<< "$extracted")"
   pr="$(jq -r '.pr // ""' <<< "$extracted")"
   issue="$(jq -r '.issue // ""' <<< "$extracted")"
   validation_count="$(jq '.validation_plan | length' <<< "$extracted")"
+  if [ -z "$worktree" ] && [ -n "$branch" ]; then
+    inferred_worktree="$(infer_worktree_from_branch "$repo" "$branch" 2>/dev/null || true)"
+    [ -n "$inferred_worktree" ] && worktree="$inferred_worktree"
+  fi
 
   tmp="$(mktemp)"
   jq \
     --argjson extracted "$extracted" \
     --arg source "$source" \
     --arg updated "$(now_utc)" \
+    --arg worktree "$worktree" \
     '
     .updated = $updated
     | .task.branch = (if ($extracted.branch // "") != "" then $extracted.branch else (.task.branch // "") end)
-    | .task.worktree = (if ($extracted.worktree // "") != "" then $extracted.worktree else (.task.worktree // "") end)
+    | .task.worktree = (if $worktree != "" then $worktree else (.task.worktree // "") end)
     | .task.pr = (if ($extracted.pr // "") != "" then $extracted.pr else (.task.pr // "") end)
     | .task.issue = (if ($extracted.issue // "") != "" then $extracted.issue else (.task.issue // "") end)
     | .preflight.task_resume_checked = true
-    | .preflight.worktree_checked = ((if ($extracted.worktree // "") != "" then true else (.preflight.worktree_checked // false) end))
+    | .preflight.worktree_checked = ((if $worktree != "" then true else (.preflight.worktree_checked // false) end))
     | .preflight.validation_plan = (if (($extracted.validation_plan // []) | length) > 0 then $extracted.validation_plan else (.preflight.validation_plan // []) end)
     | .preflight.hydrated_from = $source
     ' "$workflow_file" > "$tmp"
@@ -746,6 +796,15 @@ cmd_validation_import() {
 
   ensure_ledger "$task_path"
   ledger_file="$(ledger_file_for "$task_path")"
+  if [ "$(jq -s --arg source "$source" --arg package "$package" '[.[] | select(.type == "validation" and .historical == true and .evidence == $source and .package == $package)] | length' "$ledger_file")" -gt 0 ]; then
+    echo "# Historical Validation Already Imported"
+    echo "- task_path: $task_path"
+    echo "- source: $source"
+    echo "- validation_ledger: $ledger_file"
+    echo "- evidence_items: $evidence_count"
+    echo "- result: skipped"
+    return 0
+  fi
   jq -c -n \
     --arg type "validation" \
     --arg time "$(now_utc)" \
@@ -809,9 +868,11 @@ cmd_preflight() {
     if [ -n "$worktree" ] && [ ! -d "$worktree" ]; then
       blockers+=("declared worktree does not exist: $worktree")
     fi
-    if [ "$repo" = "detection-platform-metal" ] && [ "$kind" = "implementation" ] && [ -z "$worktree" ]; then
-      blockers+=("product implementation is missing task.worktree")
-    fi
+    case "$repo:$kind" in
+      detection-platform-metal:implementation|detection-agentic-workflows:implementation)
+        [ -n "$worktree" ] || blockers+=("implementation task is missing task.worktree")
+        ;;
+    esac
   fi
 
   [ -f "$task_path/resume.md" ] || warnings+=("resume.md missing")

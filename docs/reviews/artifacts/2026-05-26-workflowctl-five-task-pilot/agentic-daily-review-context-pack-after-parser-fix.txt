@@ -1,0 +1,8 @@
+# agentic-daily-review-context-pack-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows --max-bytes 7000
+
+# Context Pack Written
+- task_path: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+- output: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows/artifacts/context-pack-20260526T210956Z.md
+
+exit_status=0

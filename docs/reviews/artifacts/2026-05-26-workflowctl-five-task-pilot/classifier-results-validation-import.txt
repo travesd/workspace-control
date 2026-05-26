@@ -1,0 +1,6 @@
+# classifier-results-validation-import
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/classifier-results-browser
+
+workflowctl: no historical validation evidence found in /workspace/detection-platform-metal-work/busy/classifier-results-browser/resume.md
+
+exit_status=2

@@ -1,0 +1,8 @@
+# pr34-review-context-pack-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash --max-bytes 7000
+
+# Context Pack Written
+- task_path: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+- output: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash/artifacts/context-pack-20260526T211153Z.md
+
+exit_status=0

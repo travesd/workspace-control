@@ -1,0 +1,16 @@
+# pr34-review-close-check-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl close-check --task-path /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+
+# Workflow Close Check
+- task_path: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+- task_root: /workspace/detection-platform-metal-work
+- durable_learning_route: none
+
+## Warnings
+- closeoff.cleanup_decision is empty
+- no validation entries recorded for review task
+
+## Blockers
+- SUMMARY.md missing
+
+exit_status=1

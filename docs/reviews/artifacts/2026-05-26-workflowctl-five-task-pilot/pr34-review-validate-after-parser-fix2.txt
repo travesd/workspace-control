@@ -1,0 +1,18 @@
+# pr34-review-validate-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl validate --task-path /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+
+# Validation Ledger
+- task_path: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+- validation_ledger: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash/validation.jsonl
+- validation_entries: 0
+- passing_entries: 0
+- historical_entries: 0
+
+## Results
+- none
+
+## Blockers
+- no validation entries recorded
+- no passing validation entries recorded
+
+exit_status=1

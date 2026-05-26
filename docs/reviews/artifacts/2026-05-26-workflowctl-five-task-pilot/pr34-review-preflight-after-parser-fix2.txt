@@ -1,0 +1,15 @@
+# pr34-review-preflight-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl preflight --task-path /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+
+# Workflow Preflight
+- task_path: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+- active_rules: present
+- kernel_spec: present
+
+## Warnings
+- none
+
+## Blockers
+- none
+
+exit_status=0

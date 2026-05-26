@@ -1,0 +1,6 @@
+# client-threat-intel-validation-import
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+
+workflowctl: no historical validation evidence found in /workspace/detection-platform-metal-work/busy/client-threat-intel-reports/resume.md
+
+exit_status=2

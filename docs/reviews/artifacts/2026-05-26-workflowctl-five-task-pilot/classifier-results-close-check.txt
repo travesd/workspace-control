@@ -1,0 +1,16 @@
+# classifier-results-close-check
+command: /workspace/workspace-control/tools/workflowctl close-check --task-path /workspace/detection-platform-metal-work/busy/classifier-results-browser
+
+# Workflow Close Check
+- task_path: /workspace/detection-platform-metal-work/busy/classifier-results-browser
+- task_root: /workspace/detection-platform-metal-work
+- durable_learning_route: none
+
+## Warnings
+- closeoff.cleanup_decision is empty
+
+## Blockers
+- SUMMARY.md missing
+- no validation entries recorded
+
+exit_status=1

@@ -1,0 +1,8 @@
+# client-threat-intel-context-pack-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl context-pack --task-path /workspace/detection-platform-metal-work/busy/client-threat-intel-reports --max-bytes 7000
+
+# Context Pack Written
+- task_path: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+- output: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports/artifacts/context-pack-20260526T211154Z.md
+
+exit_status=0

@@ -1,0 +1,18 @@
+# client-threat-intel-validate
+command: /workspace/workspace-control/tools/workflowctl validate --task-path /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+
+# Validation Ledger
+- task_path: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+- validation_ledger: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports/validation.jsonl
+- validation_entries: 0
+- passing_entries: 0
+- historical_entries: 0
+
+## Results
+- none
+
+## Blockers
+- no validation entries recorded
+- no passing validation entries recorded
+
+exit_status=1

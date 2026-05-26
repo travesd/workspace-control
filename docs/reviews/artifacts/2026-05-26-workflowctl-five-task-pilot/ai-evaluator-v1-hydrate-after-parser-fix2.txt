@@ -1,0 +1,13 @@
+# ai-evaluator-v1-hydrate-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+
+# Workflow Hydrated
+- task_path: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1
+- source: /workspace/detection-platform-metal-work/busy/ai-evaluator-incidents-page-v1/resume.md
+- branch: feat/ai-evaluator-incidents-page-v1
+- worktree: /workspace/detection-platform-metal.worktrees/feat-ai-evaluator-incidents-page-v1
+- pr: none
+- issue: none
+- validation_plan_entries: 0
+
+exit_status=0

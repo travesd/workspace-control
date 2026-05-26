@@ -1,0 +1,11 @@
+# agentic-daily-review-validation-import-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+
+# Historical Validation Imported
+- task_path: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+- source: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows/resume.md
+- validation_ledger: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows/validation.jsonl
+- evidence_items: 2
+- result: skipped
+
+exit_status=0

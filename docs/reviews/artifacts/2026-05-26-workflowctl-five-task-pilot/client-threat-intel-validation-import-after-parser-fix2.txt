@@ -1,0 +1,11 @@
+# client-threat-intel-validation-import-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+
+# Historical Validation Already Imported
+- task_path: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports
+- source: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports/resume.md
+- validation_ledger: /workspace/detection-platform-metal-work/busy/client-threat-intel-reports/validation.jsonl
+- evidence_items: 4
+- result: skipped
+
+exit_status=0

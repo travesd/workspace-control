@@ -1,0 +1,18 @@
+# agentic-daily-review-validate-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl validate --task-path /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+
+# Validation Ledger
+- task_path: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+- validation_ledger: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows/validation.jsonl
+- validation_entries: 1
+- passing_entries: 0
+- historical_entries: 1
+
+## Results
+- skipped: 1
+
+## Blockers
+- no passing validation entries recorded
+- skipped entries do not count as fresh validation passes
+
+exit_status=1

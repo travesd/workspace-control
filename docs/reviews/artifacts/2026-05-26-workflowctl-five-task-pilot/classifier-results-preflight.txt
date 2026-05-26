@@ -1,0 +1,15 @@
+# classifier-results-preflight
+command: /workspace/workspace-control/tools/workflowctl preflight --task-path /workspace/detection-platform-metal-work/busy/classifier-results-browser
+
+# Workflow Preflight
+- task_path: /workspace/detection-platform-metal-work/busy/classifier-results-browser
+- active_rules: present
+- kernel_spec: present
+
+## Warnings
+- none
+
+## Blockers
+- product implementation is missing task.worktree
+
+exit_status=1

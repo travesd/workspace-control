@@ -1,0 +1,16 @@
+# agentic-daily-review-close-check-after-parser-fix2
+command: /workspace/workspace-control/tools/workflowctl close-check --task-path /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+
+# Workflow Close Check
+- task_path: /workspace/detection-agentic-workflows-work/busy/convert-evaluator-audit-to-agentic-workflows
+- task_root: /workspace/detection-agentic-workflows-work
+- durable_learning_route: none
+
+## Warnings
+- closeoff.cleanup_decision is empty
+- skipped validation entries are historical or non-fresh evidence only
+
+## Blockers
+- no passing validation entries recorded
+
+exit_status=1

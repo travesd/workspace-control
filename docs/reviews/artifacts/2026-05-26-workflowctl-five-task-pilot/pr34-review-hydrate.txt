@@ -1,0 +1,13 @@
+# pr34-review-hydrate
+command: /workspace/workspace-control/tools/workflowctl hydrate --task-path /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+
+# Workflow Hydrated
+- task_path: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+- source: /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash/resume.md
+- branch: add-minhash-tlsh-hashing
+- worktree: /workspace/detection-platform-metal.worktrees/add-minhash-tlsh-hashing
+- pr: none
+- issue: none
+- validation_plan_entries: 0
+
+exit_status=0

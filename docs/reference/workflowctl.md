@@ -85,7 +85,10 @@ checkpoints from the path.
 
 `hydrate` reads `resume.md` or an explicit source file and updates
 `workflow.json` with obvious branch, worktree, PR, issue, and fenced validation
-plan fields. It records the source path in `preflight.hydrated_from`.
+plan fields. It accepts common Markdown task labels such as `**Branch:**` and
+`**Worktree:**`, and can infer an existing worktree path from an extracted
+branch using the workspace branch-to-directory convention. It records the
+source path in `preflight.hydrated_from`.
 
 `status` is read-only. It reports whether the task dir, `workflow.json`,
 `resume.md`, `SUMMARY.md`, and `validation.jsonl` exist, then summarizes
@@ -102,8 +105,11 @@ execute the command.
 
 `validation import` reads historical evidence from `resume.md` and appends one
 conservative JSONL entry with `result="skipped"` and `historical=true`. This
-improves handoff without claiming a fresh validation pass. `validate` and
-`close-check` still require a passing validation entry for implementation
+improves handoff without claiming a fresh validation pass. The importer looks
+for validation-looking bullets under common resume sections such as
+`Validation Results`, `Current Validation`, `Current State`, `Status`, and
+`Session Notes`. Re-importing the same source/package is idempotent. `validate`
+and `close-check` still require a passing validation entry for implementation
 closeoff.
 
 `validate` is read-only. It summarizes validation ledger entries by result and

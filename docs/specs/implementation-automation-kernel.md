@@ -154,6 +154,12 @@ workflowctl metrics --root <work-root>
 workflowctl close-check --task-path <path>
 ```
 
+`hydrate` may infer an existing worktree path from a parsed branch name using
+the workspace worktree directory convention. Historical validation imports are
+conservative handoff evidence only: they use `skipped`/`historical=true`, are
+idempotent for the same source/package, and must not satisfy fresh validation
+gates.
+
 Later commands can execute or integrate with adapters, after separate approval:
 
 ```text

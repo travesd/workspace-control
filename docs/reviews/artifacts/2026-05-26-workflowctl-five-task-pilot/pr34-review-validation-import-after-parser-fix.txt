@@ -1,0 +1,6 @@
+# pr34-review-validation-import-after-parser-fix
+command: /workspace/workspace-control/tools/workflowctl validation import --task-path /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash
+
+workflowctl: no historical validation evidence found in /workspace/detection-platform-metal-work/busy/review-pr-34-tlsh-minhash/resume.md
+
+exit_status=2

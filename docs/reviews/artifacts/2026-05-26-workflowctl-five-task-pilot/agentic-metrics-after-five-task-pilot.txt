@@ -1,0 +1,17 @@
+# agentic-metrics-after-five-task-pilot
+command: /workspace/workspace-control/tools/workflowctl metrics --root /workspace/detection-agentic-workflows-work
+
+# Workflow Metrics
+- root: /workspace/detection-agentic-workflows-work
+- task_dirs: 2
+- with_workflow_json: 2
+- with_resume_md: 2
+- with_summary_md: 1
+- with_validation_jsonl: 2
+- with_validation_entries: 1
+- with_passing_validation: 0
+- with_durable_learning_route: 0
+- with_context_pack: 2
+- with_experiment_contract: 0
+
+exit_status=0
