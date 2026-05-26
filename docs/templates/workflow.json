@@ -1,0 +1,69 @@
+{
+  "schema": "workspace-control.implementation-workflow.v0",
+  "updated": "YYYY-MM-DDTHH:MM:SSZ",
+  "task": {
+    "request": "",
+    "repo": "workspace-control | detection-platform-metal | detection-agentic-workflows | cross-repo",
+    "lifecycle_home": "",
+    "branch": "",
+    "worktree": "",
+    "pr": "",
+    "issue": ""
+  },
+  "classification": {
+    "kind": "implementation | review | investigation | dataset | operating-model | llm-eval | closeoff",
+    "complexity": "clear | complicated | complex | chaotic",
+    "risk": [],
+    "reason": ""
+  },
+  "mode": {
+    "thinking": [],
+    "automation": "checklist | deterministic-workflow | agent-loop",
+    "human_checkpoints": []
+  },
+  "preflight": {
+    "workspace_status_checked": false,
+    "active_rules_checked": false,
+    "task_resume_checked": false,
+    "worktree_checked": false,
+    "skills_selected": [],
+    "validation_plan": [],
+    "blockers": []
+  },
+  "surfaces": {
+    "mutable": [],
+    "sealed_evaluator": [],
+    "context_pack": ""
+  },
+  "experiment": {
+    "budget": "",
+    "metric": "",
+    "keep_rule": "",
+    "complexity_delta": ""
+  },
+  "packages": [
+    {
+      "id": "P0",
+      "title": "",
+      "write_scope": [],
+      "acceptance": [],
+      "status": "pending | in-progress | blocked | done",
+      "validation": []
+    }
+  ],
+  "approvals": [
+    {
+      "action": "push | pr | live-activation | destructive-cleanup | external-write | production-write",
+      "required": true,
+      "granted": false,
+      "evidence": ""
+    }
+  ],
+  "closeoff": {
+    "summary_updated": false,
+    "resume_updated": false,
+    "session_index_updated": false,
+    "durable_learning_route": "none | task-summary | knowledge | skill-draft | adr | dataset-manifest",
+    "cleanup_decision": ""
+  }
+}

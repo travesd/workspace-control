@@ -68,6 +68,8 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `tools/knowledgectl` - lint, index, search, and stale-check provider-neutral knowledge notes; set `KNOWLEDGE_DIR` to operate on the workspace-level knowledge tree.
 - `tools/renderctl` - render/sync dry-run for compatibility outputs before layered source moves.
 - `tools/check-sensitive-content` - large-file and redacted secret-pattern check before commits or remotes.
+- `tools/workflowctl` - MVP implementation automation helper for task classification, preflight, status, validation ledgers, context packs, bounded experiment records, exports, metrics, and closeoff checks.
+- `tools/workflowctl-selftest` - temp-dir smoke test for the implementation automation helper.
 
 ## Current Plans
 
@@ -75,12 +77,16 @@ Raw provider-local memory exports are intentionally not tracked. See `SANITIZATI
 - `docs/plans/2026-05-21-workflow-improvements-go-live.md` - proposed live rollout and rollback plan for workflow improvements.
 - `docs/plans/2026-05-21-task-lifecycle-update.md` - staged plan for task lifecycle states, parked-work handling, and future activation.
 - `docs/reference/live-workspace-details.md` - on-demand details moved out of always-loaded workspace instructions.
+- `docs/reference/workflowctl.md` - MVP helper reference for the implementation automation kernel.
 - `docs/reviews/2026-05-21-thin-instructions-audit.md` - audit of always-loaded instruction size, links, and split recommendations.
 - `docs/reviews/2026-05-21-workflow-improvements-final-review.md` - end-to-end review of final repo state against scoped improvements.
 - `docs/reviews/2026-05-22-layered-repo-organization-review.md` - review of the layered source-layout scaffold and source-of-truth boundaries.
+- `docs/reviews/2026-05-26-workflowctl-kernel-review.md` - completion review for the draft implementation automation kernel.
 - `docs/specs/task-lifecycle.md` - proposed definitions for `busy`, `parked`, `later`, `done`, `archived`, and future archive destinations.
 - `docs/specs/task-resumability.md` - task-first notes, resume packets, chat-dependency classification, and measurable resumability scoring.
 - `docs/specs/repo-organization.md` - proposed layered source model for core, workspace overlays, provider adapters, and live compatibility outputs.
 - `docs/specs/render-sync-dry-run.md` - conservative render/sync dry-run gate before canonical source moves.
+- `docs/specs/implementation-automation-kernel.md` - proposed control loop for classified, gated, validated implementation automation.
 - `docs/plans/2026-05-22-layered-repo-organization.md` - staged plan for moving from the flat compatibility tree to the layered model.
+- `docs/plans/2026-05-26-workflow-control-implementation-automation.md` - proposed next leap from resumability into implementation automation.
 - `MAINTENANCE.md` - ongoing repo upkeep, live sync, skill sync, knowledge sync, and Pi boundary rules.

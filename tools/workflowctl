@@ -1,0 +1,1169 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if CONTROL_ROOT="$(git -C "$SCRIPT_DIR/.." rev-parse --show-toplevel 2>/dev/null)"; then
+  :
+else
+  CONTROL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-/workspace}"
+SCHEMA="workspace-control.implementation-workflow.v0"
+LEDGER_SCHEMA="workspace-control.validation-ledger.v0"
+EXPERIMENT_SCHEMA="workspace-control.experiment-ledger.v0"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  tools/workflowctl init --task-path <path> [--kind <kind>] [--repo <repo>] [--request <text>] [--force]
+  tools/workflowctl classify --task-path <path>
+  tools/workflowctl preflight --task-path <path>
+  tools/workflowctl status --task-path <path>
+  tools/workflowctl validation add --task-path <path> --command <text> --result <result> [--package <id>] [--cwd <path>] [--evidence <text>] [--notes <text>]
+  tools/workflowctl validate --task-path <path>
+  tools/workflowctl context-pack --task-path <path> [--output <path>|-] [--max-bytes <n>]
+  tools/workflowctl experiment init --task-path <path> --mutable <csv> --sealed-evaluator <csv> --budget <text> --metric <text> --keep-rule <text> [--complexity-delta <text>]
+  tools/workflowctl experiment check --task-path <path>
+  tools/workflowctl experiment record --task-path <path> --status keep|discard|crash [--candidate <id>] [--metric <text>] [--evidence <text>] [--complexity-delta <text>] [--notes <text>]
+  tools/workflowctl export --task-path <path> --format pi-workflow|agentic-runbook
+  tools/workflowctl metrics [--root <path>]
+  tools/workflowctl close-check --task-path <path>
+
+Kinds:
+  implementation, review, investigation, dataset, operating-model, llm-eval, closeoff
+
+Repos:
+  workspace-control, detection-platform-metal, detection-agentic-workflows, cross-repo
+
+The MVP is host-safe. Write commands only write under the selected task path and
+never run product tests, push, open PRs, or activate live files.
+USAGE
+}
+
+die() {
+  echo "workflowctl: $*" >&2
+  exit 2
+}
+
+need_jq() {
+  command -v jq >/dev/null 2>&1 || die "jq is required"
+}
+
+now_utc() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+normalize_path() {
+  local path="$1"
+  case "$path" in
+    /*) printf '%s\n' "$path" ;;
+    *) printf '%s/%s\n' "$(pwd)" "$path" ;;
+  esac
+}
+
+lower_text() {
+  tr '[:upper:]' '[:lower:]'
+}
+
+unique_csv() {
+  local seen="" item out=""
+  IFS=',' read -r -a items <<< "${1:-}"
+  for item in "${items[@]}"; do
+    [ -n "$item" ] || continue
+    case ",$seen," in
+      *,"$item",*) ;;
+      *)
+        seen="${seen:+$seen,}$item"
+        out="${out:+$out,}$item"
+        ;;
+    esac
+  done
+  printf '%s\n' "$out"
+}
+
+infer_repo() {
+  local path="$1"
+  case "$path" in
+    "$CONTROL_ROOT"|"$CONTROL_ROOT"/*) echo "workspace-control" ;;
+    "$WORKSPACE_ROOT/detection-agentic-workflows"|"$WORKSPACE_ROOT/detection-agentic-workflows"/*|"$WORKSPACE_ROOT/detection-agentic-workflows.worktrees"/*|"$WORKSPACE_ROOT/detection-agentic-workflows-work"/*) echo "detection-agentic-workflows" ;;
+    "$WORKSPACE_ROOT/detection-platform-metal"|"$WORKSPACE_ROOT/detection-platform-metal"/*|"$WORKSPACE_ROOT/detection-platform-metal.worktrees"/*|"$WORKSPACE_ROOT/detection-platform-metal-work"/*) echo "detection-platform-metal" ;;
+    "$WORKSPACE_ROOT"/*) echo "cross-repo" ;;
+    *) echo "workspace-control" ;;
+  esac
+}
+
+valid_repo() {
+  case "$1" in
+    workspace-control|detection-platform-metal|detection-agentic-workflows|cross-repo) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_kind() {
+  case "$1" in
+    implementation|review|investigation|dataset|operating-model|llm-eval|closeoff) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_validation_result() {
+  case "$1" in
+    pass|fail|skipped|blocked) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_experiment_status() {
+  case "$1" in
+    keep|discard|crash) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+infer_request() {
+  local path="$1"
+  local base
+  base="$(basename "$path")"
+  base="${base//-/ }"
+  base="${base//_/ }"
+  printf '%s\n' "$base"
+}
+
+infer_kind() {
+  local path="$1"
+  local request="${2:-}"
+  local text
+  text="$(printf '%s %s' "$path" "$request" | lower_text)"
+
+  case "$text" in
+    *llm*|*eval*|*classifier*|*prompt*|*ground-truth*|*ground_truth*) echo "llm-eval" ;;
+    *dataset*|*export*|*corpus*) echo "dataset" ;;
+    *closeoff*|*close-off*|*close\ off*|*archive*|*cleanup*) echo "closeoff" ;;
+    *review*|*audit*|*pr-*) echo "review" ;;
+    *investigat*|*research*|*trace*|*diagnos*) echo "investigation" ;;
+    *workspace-control*|*workflow*|*agent*|*skill*|*instruction*|*operating-model*|*automation-kernel*) echo "operating-model" ;;
+    *) echo "implementation" ;;
+  esac
+}
+
+infer_complexity() {
+  local kind="$1"
+  case "$kind" in
+    closeoff) echo "clear" ;;
+    llm-eval) echo "complex" ;;
+    operating-model|dataset|investigation|review|implementation) echo "complicated" ;;
+    *) echo "complicated" ;;
+  esac
+}
+
+infer_risk_csv() {
+  local repo="$1" kind="$2" path="$3"
+  local text risks=""
+  text="$(printf '%s' "$path" | lower_text)"
+
+  [ "$repo" = "workspace-control" ] && risks="${risks:+$risks,}workspace-rules"
+  [ "$repo" = "detection-platform-metal" ] && risks="${risks:+$risks,}product-code"
+  [ "$repo" = "detection-agentic-workflows" ] && risks="${risks:+$risks,}agentic-workflow"
+  [ "$repo" = "cross-repo" ] && risks="${risks:+$risks,}cross-repo"
+  [ "$kind" = "dataset" ] && risks="${risks:+$risks,}data-product"
+  [ "$kind" = "llm-eval" ] && risks="${risks:+$risks,}llm-quality"
+  case "$text" in
+    *prod*|*production*|*db*) risks="${risks:+$risks,}production-read-risk" ;;
+  esac
+
+  unique_csv "$risks"
+}
+
+infer_thinking_csv() {
+  local kind="$1"
+  case "$kind" in
+    closeoff) echo "recognition" ;;
+    operating-model) echo "systems-leverage,divergent-convergent" ;;
+    investigation) echo "divergent-convergent,deliberate-engineering" ;;
+    llm-eval) echo "experimental-complex-systems" ;;
+    review|dataset|implementation) echo "deliberate-engineering" ;;
+    *) echo "deliberate-engineering" ;;
+  esac
+}
+
+infer_automation() {
+  local kind="$1"
+  case "$kind" in
+    closeoff) echo "checklist" ;;
+    *) echo "deterministic-workflow" ;;
+  esac
+}
+
+infer_checkpoints_csv() {
+  local repo="$1" risk_csv="$2"
+  local checkpoints="before-push,before-pr"
+  [ "$repo" = "workspace-control" ] && checkpoints="$checkpoints,before-live-activation"
+  case ",$risk_csv," in
+    *,data-product,*) checkpoints="$checkpoints,before-dataset-publish" ;;
+  esac
+  unique_csv "$checkpoints"
+}
+
+infer_validation_plan_csv() {
+  local repo="$1" kind="$2"
+  case "$repo:$kind" in
+    workspace-control:*)
+      echo "./tools/check-sensitive-content .,git diff --check,./tools/knowledgectl index --check"
+      ;;
+    detection-platform-metal:implementation|detection-platform-metal:dataset|detection-platform-metal:llm-eval)
+      echo "container/local-stack validation required,record command output in validation.jsonl"
+      ;;
+    detection-agentic-workflows:*)
+      echo "docker compose run --rm agentic pnpm <tool>,record JSON-envelope artifacts"
+      ;;
+    *)
+      echo "source-read evidence required,record validation evidence"
+      ;;
+  esac
+}
+
+task_root_for_path() {
+  local path="$1"
+  case "$path" in
+    "$WORKSPACE_ROOT/detection-platform-metal-work"/*) echo "$WORKSPACE_ROOT/detection-platform-metal-work" ;;
+    "$WORKSPACE_ROOT/detection-agentic-workflows-work"/*) echo "$WORKSPACE_ROOT/detection-agentic-workflows-work" ;;
+    *) echo "" ;;
+  esac
+}
+
+workflow_file_for() {
+  printf '%s/workflow.json\n' "$1"
+}
+
+ledger_file_for() {
+  printf '%s/validation.jsonl\n' "$1"
+}
+
+experiment_file_for() {
+  printf '%s/experiment.jsonl\n' "$1"
+}
+
+ensure_ledger() {
+  local task_path="$1"
+  local ledger_file
+  ledger_file="$(ledger_file_for "$task_path")"
+  if [ ! -f "$ledger_file" ]; then
+    printf '{"schema":"%s","type":"header","task_path":"%s","created":"%s"}\n' "$LEDGER_SCHEMA" "$task_path" "$(now_utc)" > "$ledger_file"
+  fi
+}
+
+ensure_experiment_ledger() {
+  local task_path="$1"
+  local experiment_file
+  experiment_file="$(experiment_file_for "$task_path")"
+  if [ ! -f "$experiment_file" ]; then
+    printf '{"schema":"%s","type":"header","task_path":"%s","created":"%s"}\n' "$EXPERIMENT_SCHEMA" "$task_path" "$(now_utc)" > "$experiment_file"
+  fi
+}
+
+read_workflow_field() {
+  local workflow_file="$1" filter="$2" fallback="${3:-}"
+  jq -r --arg fallback "$fallback" "($filter) // \$fallback" "$workflow_file"
+}
+
+is_sensitive_path() {
+  local path name
+  path="$1"
+  name="$(basename "$path" | lower_text)"
+  case "$name" in
+    *.env|*.pem|*.key|*secret*|*token*|*credential*|*password*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+emit_file_excerpt() {
+  local label="$1" path="$2" max_bytes="$3" size
+  [ -f "$path" ] || return 0
+  echo
+  echo "### $label"
+  echo
+  if is_sensitive_path "$path"; then
+    echo "_Skipped sensitive-looking path._"
+    return 0
+  fi
+  if ! LC_ALL=C grep -Iq . "$path"; then
+    echo "_Skipped binary or non-text path._"
+    return 0
+  fi
+  size="$(wc -c < "$path" | tr -d ' ')"
+  echo '```text'
+  if [ "$size" -gt "$max_bytes" ]; then
+    head -c "$max_bytes" "$path"
+    echo
+    echo "[truncated after $max_bytes bytes]"
+  else
+    cat "$path"
+  fi
+  echo '```'
+}
+
+cmd_init() {
+  need_jq
+  local task_path="" kind="" repo="" request="" force=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --kind) kind="${2:-}"; shift 2 ;;
+      --repo) repo="${2:-}"; shift 2 ;;
+      --request) request="${2:-}"; shift 2 ;;
+      --force) force=1; shift ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown init argument: $1" ;;
+    esac
+  done
+
+  [ -n "$task_path" ] || die "init requires --task-path"
+  mkdir -p "$task_path"
+  [ -n "$request" ] || request="$(infer_request "$task_path")"
+  [ -n "$repo" ] || repo="$(infer_repo "$task_path")"
+  [ -n "$kind" ] || kind="$(infer_kind "$task_path" "$request")"
+  valid_repo "$repo" || die "invalid repo: $repo"
+  valid_kind "$kind" || die "invalid kind: $kind"
+
+  local complexity risk_csv thinking_csv automation checkpoints_csv validation_csv updated workflow_file ledger_file tmp
+  complexity="$(infer_complexity "$kind")"
+  risk_csv="$(infer_risk_csv "$repo" "$kind" "$task_path")"
+  thinking_csv="$(infer_thinking_csv "$kind")"
+  automation="$(infer_automation "$kind")"
+  checkpoints_csv="$(infer_checkpoints_csv "$repo" "$risk_csv")"
+  validation_csv="$(infer_validation_plan_csv "$repo" "$kind")"
+  updated="$(now_utc)"
+  workflow_file="$(workflow_file_for "$task_path")"
+  ledger_file="$(ledger_file_for "$task_path")"
+
+  if [ -f "$workflow_file" ] && [ "$force" -ne 1 ]; then
+    die "$workflow_file already exists; use --force to replace it"
+  fi
+
+  tmp="$(mktemp)"
+  jq -n \
+    --arg schema "$SCHEMA" \
+    --arg updated "$updated" \
+    --arg request "$request" \
+    --arg repo "$repo" \
+    --arg lifecycle_home "$task_path" \
+    --arg kind "$kind" \
+    --arg complexity "$complexity" \
+    --arg risk_csv "$risk_csv" \
+    --arg reason "Inferred by workflowctl init from task path and request; review before execution." \
+    --arg thinking_csv "$thinking_csv" \
+    --arg automation "$automation" \
+    --arg checkpoints_csv "$checkpoints_csv" \
+    --arg validation_csv "$validation_csv" \
+    '
+    def csv: split(",") | map(select(length > 0));
+    {
+      schema: $schema,
+      updated: $updated,
+      task: {
+        request: $request,
+        repo: $repo,
+        lifecycle_home: $lifecycle_home,
+        branch: "",
+        worktree: "",
+        pr: "",
+        issue: ""
+      },
+      classification: {
+        kind: $kind,
+        complexity: $complexity,
+        risk: ($risk_csv | csv),
+        reason: $reason
+      },
+      mode: {
+        thinking: ($thinking_csv | csv),
+        automation: $automation,
+        human_checkpoints: ($checkpoints_csv | csv)
+      },
+      preflight: {
+        workspace_status_checked: false,
+        active_rules_checked: false,
+        task_resume_checked: false,
+        worktree_checked: false,
+        skills_selected: [],
+        validation_plan: ($validation_csv | csv),
+        blockers: []
+      },
+      surfaces: {
+        mutable: [],
+        sealed_evaluator: [],
+        context_pack: ""
+      },
+      experiment: {
+        budget: "",
+        metric: "",
+        keep_rule: "",
+        complexity_delta: ""
+      },
+      packages: [
+        {
+          id: "P0",
+          title: $request,
+          write_scope: [],
+          acceptance: [],
+          status: "pending",
+          validation: []
+        }
+      ],
+      approvals: [
+        { action: "push", required: true, granted: false, evidence: "" },
+        { action: "pr", required: true, granted: false, evidence: "" },
+        { action: "live-activation", required: true, granted: false, evidence: "" },
+        { action: "destructive-cleanup", required: true, granted: false, evidence: "" },
+        { action: "external-write", required: true, granted: false, evidence: "" },
+        { action: "production-write", required: true, granted: false, evidence: "" }
+      ],
+      closeoff: {
+        summary_updated: false,
+        resume_updated: false,
+        session_index_updated: false,
+        durable_learning_route: "none",
+        cleanup_decision: ""
+      }
+    }' > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  if [ ! -f "$ledger_file" ]; then
+    printf '{"schema":"%s","type":"header","task_path":"%s","created":"%s"}\n' "$LEDGER_SCHEMA" "$task_path" "$updated" > "$ledger_file"
+  fi
+
+  echo "# Workflow Initialized"
+  echo "- task_path: $task_path"
+  echo "- workflow: $workflow_file"
+  echo "- validation_ledger: $ledger_file"
+  echo "- kind: $kind"
+  echo "- repo: $repo"
+  echo "- automation: $automation"
+}
+
+cmd_classify() {
+  need_jq
+  local task_path="" workflow_file repo kind request complexity risk_csv thinking_csv automation checkpoints_csv
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown classify argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "classify requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+
+  if [ -f "$workflow_file" ]; then
+    jq empty "$workflow_file" >/dev/null
+    repo="$(read_workflow_field "$workflow_file" '.task.repo' "$(infer_repo "$task_path")")"
+    request="$(read_workflow_field "$workflow_file" '.task.request' "$(infer_request "$task_path")")"
+    kind="$(read_workflow_field "$workflow_file" '.classification.kind' "$(infer_kind "$task_path" "$request")")"
+    complexity="$(read_workflow_field "$workflow_file" '.classification.complexity' "$(infer_complexity "$kind")")"
+    risk_csv="$(jq -r '.classification.risk // [] | join(",")' "$workflow_file")"
+    thinking_csv="$(jq -r '.mode.thinking // [] | join(",")' "$workflow_file")"
+    automation="$(read_workflow_field "$workflow_file" '.mode.automation' "$(infer_automation "$kind")")"
+    checkpoints_csv="$(jq -r '.mode.human_checkpoints // [] | join(",")' "$workflow_file")"
+  else
+    repo="$(infer_repo "$task_path")"
+    request="$(infer_request "$task_path")"
+    kind="$(infer_kind "$task_path" "$request")"
+    complexity="$(infer_complexity "$kind")"
+    risk_csv="$(infer_risk_csv "$repo" "$kind" "$task_path")"
+    thinking_csv="$(infer_thinking_csv "$kind")"
+    automation="$(infer_automation "$kind")"
+    checkpoints_csv="$(infer_checkpoints_csv "$repo" "$risk_csv")"
+  fi
+
+  echo "# Workflow Classification"
+  echo "- task_path: $task_path"
+  echo "- workflow: $([ -f "$workflow_file" ] && echo present || echo missing)"
+  echo "- request: $request"
+  echo "- repo: $repo"
+  echo "- kind: $kind"
+  echo "- complexity: $complexity"
+  echo "- risk: ${risk_csv:-none}"
+  echo "- thinking: ${thinking_csv:-none}"
+  echo "- automation: $automation"
+  echo "- human_checkpoints: ${checkpoints_csv:-none}"
+  if [ ! -f "$workflow_file" ]; then
+    echo
+    echo "Suggested next step: tools/workflowctl init --task-path \"$task_path\" --kind $kind --repo $repo"
+  fi
+}
+
+cmd_status() {
+  need_jq
+  local task_path="" workflow_file ledger_file
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown status argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "status requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+  ledger_file="$(ledger_file_for "$task_path")"
+
+  echo "# Workflow Status"
+  echo "- task_path: $task_path"
+  echo "- task_dir: $([ -d "$task_path" ] && echo present || echo missing)"
+  echo "- workflow: $([ -f "$workflow_file" ] && echo present || echo missing)"
+  echo "- resume: $([ -f "$task_path/resume.md" ] && echo present || echo missing)"
+  echo "- summary: $([ -f "$task_path/SUMMARY.md" ] && echo present || echo missing)"
+  echo "- validation_ledger: $([ -f "$ledger_file" ] && echo present || echo missing)"
+
+  if [ -f "$workflow_file" ]; then
+    jq empty "$workflow_file" >/dev/null
+    echo
+    echo "## Classification"
+    jq -r '
+      "- repo: \(.task.repo // "missing")",
+      "- kind: \(.classification.kind // "missing")",
+      "- complexity: \(.classification.complexity // "missing")",
+      "- automation: \(.mode.automation // "missing")",
+      "- risk: \((.classification.risk // []) | join(","))"
+    ' "$workflow_file"
+    echo
+    echo "## Packages"
+    jq -r '.packages[]? | "- \(.id): \(.status) - \(.title)"' "$workflow_file"
+    echo
+    echo "## Approval Stops"
+    local approvals
+    approvals="$(jq -r '.approvals[]? | select(.required == true and .granted != true) | "- \(.action)"' "$workflow_file")"
+    if [ -n "$approvals" ]; then
+      printf '%s\n' "$approvals"
+    else
+      echo "- none"
+    fi
+    echo
+    echo "## Closeoff"
+    jq -r '
+      "- summary_updated: \(.closeoff.summary_updated // false)",
+      "- resume_updated: \(.closeoff.resume_updated // false)",
+      "- session_index_updated: \(.closeoff.session_index_updated // false)",
+      "- durable_learning_route: \(.closeoff.durable_learning_route // "missing")"
+    ' "$workflow_file"
+  fi
+}
+
+cmd_validation_add() {
+  need_jq
+  local task_path="" package="P0" command_text="" result="" cwd="" evidence="" notes="" ledger_file
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --package) package="${2:-}"; shift 2 ;;
+      --command) command_text="${2:-}"; shift 2 ;;
+      --result) result="${2:-}"; shift 2 ;;
+      --cwd) cwd="$(normalize_path "${2:-}")"; shift 2 ;;
+      --evidence) evidence="${2:-}"; shift 2 ;;
+      --notes) notes="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown validation add argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "validation add requires --task-path"
+  [ -d "$task_path" ] || die "task path does not exist: $task_path"
+  [ -n "$command_text" ] || die "validation add requires --command"
+  [ -n "$result" ] || die "validation add requires --result"
+  valid_validation_result "$result" || die "invalid validation result: $result"
+  [ -n "$cwd" ] || cwd="$(pwd)"
+
+  ensure_ledger "$task_path"
+  ledger_file="$(ledger_file_for "$task_path")"
+  jq -c -n \
+    --arg type "validation" \
+    --arg time "$(now_utc)" \
+    --arg package "$package" \
+    --arg command "$command_text" \
+    --arg cwd "$cwd" \
+    --arg result "$result" \
+    --arg evidence "$evidence" \
+    --arg notes "$notes" \
+    '{type:$type,time:$time,package:$package,command:$command,cwd:$cwd,result:$result,evidence:$evidence,notes:$notes}' >> "$ledger_file"
+
+  echo "# Validation Recorded"
+  echo "- task_path: $task_path"
+  echo "- validation_ledger: $ledger_file"
+  echo "- package: $package"
+  echo "- result: $result"
+}
+
+cmd_preflight() {
+  need_jq
+  local task_path="" workflow_file repo kind worktree validation_count root
+  local blockers=() warnings=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown preflight argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "preflight requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+
+  [ -d "$task_path" ] || blockers+=("task path does not exist")
+  [ -f "$WORKSPACE_ROOT/AGENTS.md" ] || blockers+=("active workspace instructions missing at $WORKSPACE_ROOT/AGENTS.md")
+  [ -f "$CONTROL_ROOT/docs/specs/implementation-automation-kernel.md" ] || blockers+=("kernel spec missing")
+  if [ ! -f "$workflow_file" ]; then
+    blockers+=("workflow.json missing; run workflowctl init first")
+  else
+    jq empty "$workflow_file" >/dev/null || blockers+=("workflow.json is invalid JSON")
+    repo="$(read_workflow_field "$workflow_file" '.task.repo' "")"
+    kind="$(read_workflow_field "$workflow_file" '.classification.kind' "")"
+    worktree="$(read_workflow_field "$workflow_file" '.task.worktree' "")"
+    validation_count="$(jq '.preflight.validation_plan // [] | length' "$workflow_file")"
+    [ "$(read_workflow_field "$workflow_file" '.schema' "")" = "$SCHEMA" ] || blockers+=("workflow schema is not $SCHEMA")
+    [ -n "$repo" ] && valid_repo "$repo" || blockers+=("task.repo is missing or invalid")
+    [ -n "$kind" ] && valid_kind "$kind" || blockers+=("classification.kind is missing or invalid")
+    [ "$validation_count" -gt 0 ] || blockers+=("preflight.validation_plan is empty")
+    if [ -n "$worktree" ] && [ ! -d "$worktree" ]; then
+      blockers+=("declared worktree does not exist: $worktree")
+    fi
+    if [ "$repo" = "detection-platform-metal" ] && [ "$kind" = "implementation" ] && [ -z "$worktree" ]; then
+      blockers+=("product implementation is missing task.worktree")
+    fi
+  fi
+
+  [ -f "$task_path/resume.md" ] || warnings+=("resume.md missing")
+  root="$(task_root_for_path "$task_path")"
+  if [ -n "$root" ] && [ ! -f "$root/SESSIONS.md" ]; then
+    warnings+=("task root has no SESSIONS.md: $root")
+  fi
+
+  echo "# Workflow Preflight"
+  echo "- task_path: $task_path"
+  echo "- active_rules: $([ -f "$WORKSPACE_ROOT/AGENTS.md" ] && echo present || echo missing)"
+  echo "- kernel_spec: $([ -f "$CONTROL_ROOT/docs/specs/implementation-automation-kernel.md" ] && echo present || echo missing)"
+  echo
+  echo "## Warnings"
+  if [ "${#warnings[@]}" -eq 0 ]; then
+    echo "- none"
+  else
+    printf -- "- %s\n" "${warnings[@]}"
+  fi
+  echo
+  echo "## Blockers"
+  if [ "${#blockers[@]}" -eq 0 ]; then
+    echo "- none"
+    return 0
+  fi
+  printf -- "- %s\n" "${blockers[@]}"
+  return 1
+}
+
+cmd_validate() {
+  need_jq
+  local task_path="" ledger_file entries failures blocked
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown validate argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "validate requires --task-path"
+  ledger_file="$(ledger_file_for "$task_path")"
+
+  echo "# Validation Ledger"
+  echo "- task_path: $task_path"
+  echo "- validation_ledger: $ledger_file"
+  if [ ! -f "$ledger_file" ]; then
+    echo
+    echo "## Blockers"
+    echo "- validation.jsonl missing"
+    return 1
+  fi
+  jq -s empty "$ledger_file" >/dev/null
+  entries="$(jq -s '[.[] | select(.type == "validation")] | length' "$ledger_file")"
+  failures="$(jq -s '[.[] | select(.type == "validation" and .result == "fail")] | length' "$ledger_file")"
+  blocked="$(jq -s '[.[] | select(.type == "validation" and .result == "blocked")] | length' "$ledger_file")"
+  echo "- validation_entries: $entries"
+  echo
+  echo "## Results"
+  jq -r -s '
+    [.[] | select(.type == "validation")]
+    | if length == 0 then "- none"
+      else group_by(.result // "missing")
+        | map("- " + (.[0].result // "missing") + ": " + (length|tostring))
+        | .[]
+      end
+  ' "$ledger_file"
+  if [ "$entries" -eq 0 ] || [ "$failures" -gt 0 ] || [ "$blocked" -gt 0 ]; then
+    echo
+    echo "## Blockers"
+    [ "$entries" -gt 0 ] || echo "- no validation entries recorded"
+    [ "$failures" -eq 0 ] || echo "- failing validation entries recorded"
+    [ "$blocked" -eq 0 ] || echo "- blocked validation entries recorded"
+    return 1
+  fi
+}
+
+cmd_context_pack() {
+  need_jq
+  local task_path="" output="" max_bytes=12000 workflow_file ledger_file experiment_file worktree tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --output) output="${2:-}"; shift 2 ;;
+      --max-bytes) max_bytes="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown context-pack argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "context-pack requires --task-path"
+  [ -d "$task_path" ] || die "task path does not exist: $task_path"
+  case "$max_bytes" in
+    ''|*[!0-9]*) die "--max-bytes must be a positive integer" ;;
+  esac
+  [ "$max_bytes" -gt 0 ] || die "--max-bytes must be greater than zero"
+
+  if [ -z "$output" ]; then
+    mkdir -p "$task_path/artifacts"
+    output="$task_path/artifacts/context-pack-$(date -u +%Y%m%dT%H%M%SZ).md"
+  elif [ "$output" != "-" ]; then
+    output="$(normalize_path "$output")"
+    case "$output" in
+      "$task_path"/*) mkdir -p "$(dirname "$output")" ;;
+      *) die "--output must be under --task-path or '-' for stdout" ;;
+    esac
+  fi
+
+  workflow_file="$(workflow_file_for "$task_path")"
+  ledger_file="$(ledger_file_for "$task_path")"
+  experiment_file="$(experiment_file_for "$task_path")"
+  tmp="$(mktemp)"
+  {
+    echo "# Workflow Context Pack"
+    echo
+    echo "- generated: $(now_utc)"
+    echo "- task_path: $task_path"
+    echo "- workflow: $([ -f "$workflow_file" ] && echo present || echo missing)"
+    echo "- validation_ledger: $([ -f "$ledger_file" ] && echo present || echo missing)"
+    echo "- experiment_ledger: $([ -f "$experiment_file" ] && echo present || echo missing)"
+    if [ -f "$workflow_file" ]; then
+      jq empty "$workflow_file" >/dev/null
+      echo
+      echo "## Workflow Summary"
+      echo
+      jq -r '
+        "- request: \(.task.request // "missing")",
+        "- repo: \(.task.repo // "missing")",
+        "- kind: \(.classification.kind // "missing")",
+        "- complexity: \(.classification.complexity // "missing")",
+        "- automation: \(.mode.automation // "missing")",
+        "- risk: \((.classification.risk // []) | join(","))",
+        "- thinking: \((.mode.thinking // []) | join(","))",
+        "- checkpoints: \((.mode.human_checkpoints // []) | join(","))"
+      ' "$workflow_file"
+      worktree="$(read_workflow_field "$workflow_file" '.task.worktree' "")"
+      if [ -n "$worktree" ] && [ -d "$worktree" ]; then
+        echo
+        echo "## Worktree"
+        echo
+        echo "- path: $worktree"
+        if git -C "$worktree" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          echo
+          echo '```text'
+          git -C "$worktree" status --short
+          git -C "$worktree" diff --stat
+          echo '```'
+        else
+          echo "- not a git worktree"
+        fi
+      fi
+    fi
+
+    echo
+    echo "## Task Files"
+    emit_file_excerpt "resume.md" "$task_path/resume.md" "$max_bytes"
+    emit_file_excerpt "SUMMARY.md" "$task_path/SUMMARY.md" "$max_bytes"
+    emit_file_excerpt "notes.md" "$task_path/notes.md" "$max_bytes"
+    emit_file_excerpt "LINEAGE.md" "$task_path/LINEAGE.md" "$max_bytes"
+    emit_file_excerpt "workflow.json" "$workflow_file" "$max_bytes"
+    emit_file_excerpt "validation.jsonl" "$ledger_file" "$max_bytes"
+    emit_file_excerpt "experiment.jsonl" "$experiment_file" "$max_bytes"
+  } > "$tmp"
+
+  if [ "$output" = "-" ]; then
+    cat "$tmp"
+    rm -f "$tmp"
+  else
+    mv "$tmp" "$output"
+    if [ -f "$workflow_file" ]; then
+      tmp="$(mktemp)"
+      jq --arg output "$output" '.surfaces.context_pack = $output' "$workflow_file" > "$tmp"
+      mv "$tmp" "$workflow_file"
+    fi
+    echo "# Context Pack Written"
+    echo "- task_path: $task_path"
+    echo "- output: $output"
+  fi
+}
+
+cmd_experiment_init() {
+  need_jq
+  local task_path="" mutable_csv="" sealed_csv="" budget="" metric="" keep_rule="" complexity_delta="" workflow_file experiment_file tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --mutable) mutable_csv="${2:-}"; shift 2 ;;
+      --sealed-evaluator) sealed_csv="${2:-}"; shift 2 ;;
+      --budget) budget="${2:-}"; shift 2 ;;
+      --metric) metric="${2:-}"; shift 2 ;;
+      --keep-rule) keep_rule="${2:-}"; shift 2 ;;
+      --complexity-delta) complexity_delta="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown experiment init argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "experiment init requires --task-path"
+  [ -d "$task_path" ] || die "task path does not exist: $task_path"
+  [ -n "$mutable_csv" ] || die "experiment init requires --mutable"
+  [ -n "$sealed_csv" ] || die "experiment init requires --sealed-evaluator"
+  [ -n "$budget" ] || die "experiment init requires --budget"
+  [ -n "$metric" ] || die "experiment init requires --metric"
+  [ -n "$keep_rule" ] || die "experiment init requires --keep-rule"
+  workflow_file="$(workflow_file_for "$task_path")"
+  [ -f "$workflow_file" ] || die "workflow.json missing; run workflowctl init first"
+  jq empty "$workflow_file" >/dev/null
+
+  tmp="$(mktemp)"
+  jq \
+    --arg mutable_csv "$mutable_csv" \
+    --arg sealed_csv "$sealed_csv" \
+    --arg budget "$budget" \
+    --arg metric "$metric" \
+    --arg keep_rule "$keep_rule" \
+    --arg complexity_delta "$complexity_delta" \
+    '
+    def csv: split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0));
+    .surfaces.mutable = ($mutable_csv | csv)
+    | .surfaces.sealed_evaluator = ($sealed_csv | csv)
+    | .experiment.budget = $budget
+    | .experiment.metric = $metric
+    | .experiment.keep_rule = $keep_rule
+    | .experiment.complexity_delta = $complexity_delta
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+  ensure_experiment_ledger "$task_path"
+  experiment_file="$(experiment_file_for "$task_path")"
+
+  echo "# Experiment Contract Initialized"
+  echo "- task_path: $task_path"
+  echo "- workflow: $workflow_file"
+  echo "- experiment_ledger: $experiment_file"
+}
+
+cmd_experiment_check() {
+  need_jq
+  local task_path="" workflow_file mutable_count sealed_count budget metric keep_rule
+  local blockers=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown experiment check argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "experiment check requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+  if [ ! -f "$workflow_file" ]; then
+    blockers+=("workflow.json missing")
+  else
+    jq empty "$workflow_file" >/dev/null
+    mutable_count="$(jq '.surfaces.mutable // [] | length' "$workflow_file")"
+    sealed_count="$(jq '.surfaces.sealed_evaluator // [] | length' "$workflow_file")"
+    budget="$(read_workflow_field "$workflow_file" '.experiment.budget' "")"
+    metric="$(read_workflow_field "$workflow_file" '.experiment.metric' "")"
+    keep_rule="$(read_workflow_field "$workflow_file" '.experiment.keep_rule' "")"
+    [ "$mutable_count" -gt 0 ] || blockers+=("surfaces.mutable is empty")
+    [ "$sealed_count" -gt 0 ] || blockers+=("surfaces.sealed_evaluator is empty")
+    [ -n "$budget" ] || blockers+=("experiment.budget is empty")
+    [ -n "$metric" ] || blockers+=("experiment.metric is empty")
+    [ -n "$keep_rule" ] || blockers+=("experiment.keep_rule is empty")
+  fi
+
+  echo "# Experiment Contract Check"
+  echo "- task_path: $task_path"
+  echo
+  echo "## Blockers"
+  if [ "${#blockers[@]}" -eq 0 ]; then
+    echo "- none"
+    return 0
+  fi
+  printf -- "- %s\n" "${blockers[@]}"
+  return 1
+}
+
+cmd_experiment_record() {
+  need_jq
+  local task_path="" status="" candidate="" metric="" evidence="" complexity_delta="" notes="" experiment_file
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --status) status="${2:-}"; shift 2 ;;
+      --candidate) candidate="${2:-}"; shift 2 ;;
+      --metric) metric="${2:-}"; shift 2 ;;
+      --evidence) evidence="${2:-}"; shift 2 ;;
+      --complexity-delta) complexity_delta="${2:-}"; shift 2 ;;
+      --notes) notes="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown experiment record argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "experiment record requires --task-path"
+  [ -d "$task_path" ] || die "task path does not exist: $task_path"
+  [ -n "$status" ] || die "experiment record requires --status"
+  valid_experiment_status "$status" || die "invalid experiment status: $status"
+  cmd_experiment_check --task-path "$task_path" >/dev/null
+  [ -n "$candidate" ] || candidate="candidate-$(date -u +%Y%m%dT%H%M%SZ)"
+  ensure_experiment_ledger "$task_path"
+  experiment_file="$(experiment_file_for "$task_path")"
+  jq -c -n \
+    --arg type "experiment" \
+    --arg time "$(now_utc)" \
+    --arg candidate "$candidate" \
+    --arg status "$status" \
+    --arg metric "$metric" \
+    --arg evidence "$evidence" \
+    --arg complexity_delta "$complexity_delta" \
+    --arg notes "$notes" \
+    '{type:$type,time:$time,candidate:$candidate,status:$status,metric:$metric,evidence:$evidence,complexity_delta:$complexity_delta,notes:$notes}' >> "$experiment_file"
+
+  echo "# Experiment Recorded"
+  echo "- task_path: $task_path"
+  echo "- experiment_ledger: $experiment_file"
+  echo "- candidate: $candidate"
+  echo "- status: $status"
+}
+
+cmd_export() {
+  need_jq
+  local task_path="" format="" workflow_file
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --format) format="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown export argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "export requires --task-path"
+  [ -n "$format" ] || die "export requires --format"
+  workflow_file="$(workflow_file_for "$task_path")"
+  [ -f "$workflow_file" ] || die "workflow.json missing; run workflowctl init first"
+  jq empty "$workflow_file" >/dev/null
+
+  case "$format" in
+    pi-workflow)
+      jq --arg task_path "$task_path" '{
+        schema: "workspace-control.export.pi-workflow.v0",
+        task_path: $task_path,
+        source_schema: .schema,
+        request: .task.request,
+        repo: .task.repo,
+        classification: .classification,
+        mode: .mode,
+        validation_plan: (.preflight.validation_plan // []),
+        approvals: [.approvals[]? | select(.required == true)],
+        references: [
+          "docs/specs/implementation-automation-kernel.md",
+          "docs/reference/workflowctl.md"
+        ]
+      }' "$workflow_file"
+      ;;
+    agentic-runbook)
+      echo "# Agentic Runbook Export"
+      echo
+      jq -r '
+        "- request: \(.task.request // "missing")",
+        "- repo: \(.task.repo // "missing")",
+        "- kind: \(.classification.kind // "missing")",
+        "- automation: \(.mode.automation // "missing")",
+        "- thinking: \((.mode.thinking // []) | join(","))"
+      ' "$workflow_file"
+      echo
+      echo "## Validation Plan"
+      jq -r '(.preflight.validation_plan // [])[]? | "- " + .' "$workflow_file"
+      echo
+      echo "## Approval Stops"
+      jq -r '.approvals[]? | select(.required == true) | "- " + .action' "$workflow_file"
+      ;;
+    *)
+      die "unsupported export format: $format"
+      ;;
+  esac
+}
+
+cmd_metrics() {
+  need_jq
+  local root="$WORKSPACE_ROOT/detection-platform-metal-work" task workflow_file ledger_file route validation_entries
+  local total=0 with_workflow=0 with_resume=0 with_summary=0 with_validation=0 with_validation_entries=0 with_learning_route=0 with_context_pack=0 with_experiment_contract=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --root) root="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown metrics argument: $1" ;;
+    esac
+  done
+  [ -d "$root" ] || die "metrics root does not exist: $root"
+
+  while IFS= read -r -d '' task; do
+    total=$((total + 1))
+    workflow_file="$(workflow_file_for "$task")"
+    ledger_file="$(ledger_file_for "$task")"
+    [ -f "$task/resume.md" ] && with_resume=$((with_resume + 1))
+    [ -f "$task/SUMMARY.md" ] && with_summary=$((with_summary + 1))
+    if [ -f "$workflow_file" ] && jq empty "$workflow_file" >/dev/null 2>&1; then
+      with_workflow=$((with_workflow + 1))
+      route="$(read_workflow_field "$workflow_file" '.closeoff.durable_learning_route' "")"
+      case "$route" in
+        ""|none|*"|"*) ;;
+        *) with_learning_route=$((with_learning_route + 1)) ;;
+      esac
+      if [ "$(read_workflow_field "$workflow_file" '.surfaces.context_pack' "")" != "" ]; then
+        with_context_pack=$((with_context_pack + 1))
+      fi
+      if [ "$(jq '((.surfaces.mutable // []) | length) > 0 and ((.surfaces.sealed_evaluator // []) | length) > 0 and ((.experiment.budget // "") | length) > 0 and ((.experiment.metric // "") | length) > 0 and ((.experiment.keep_rule // "") | length) > 0' "$workflow_file")" = "true" ]; then
+        with_experiment_contract=$((with_experiment_contract + 1))
+      fi
+    fi
+    if [ -f "$ledger_file" ] && jq -s empty "$ledger_file" >/dev/null 2>&1; then
+      with_validation=$((with_validation + 1))
+      validation_entries="$(jq -s '[.[] | select(.type == "validation")] | length' "$ledger_file")"
+      [ "$validation_entries" -gt 0 ] && with_validation_entries=$((with_validation_entries + 1))
+    fi
+  done < <(find "$root" -mindepth 2 -maxdepth 2 -type d \( -path "$root/busy/*" -o -path "$root/parked/*" -o -path "$root/done/*" -o -path "$root/archived/*" -o -path "$root/investigations/*" \) -print0 2>/dev/null)
+
+  echo "# Workflow Metrics"
+  echo "- root: $root"
+  echo "- task_dirs: $total"
+  echo "- with_workflow_json: $with_workflow"
+  echo "- with_resume_md: $with_resume"
+  echo "- with_summary_md: $with_summary"
+  echo "- with_validation_jsonl: $with_validation"
+  echo "- with_validation_entries: $with_validation_entries"
+  echo "- with_durable_learning_route: $with_learning_route"
+  echo "- with_context_pack: $with_context_pack"
+  echo "- with_experiment_contract: $with_experiment_contract"
+}
+
+cmd_close_check() {
+  need_jq
+  local task_path="" workflow_file ledger_file root route kind validation_entries
+  local blockers=() warnings=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown close-check argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "close-check requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+  ledger_file="$(ledger_file_for "$task_path")"
+  root="$(task_root_for_path "$task_path")"
+
+  [ -d "$task_path" ] || blockers+=("task path does not exist")
+  if [ ! -f "$workflow_file" ]; then
+    blockers+=("workflow.json missing")
+    kind=""
+    route=""
+  else
+    jq empty "$workflow_file" >/dev/null
+    kind="$(read_workflow_field "$workflow_file" '.classification.kind' "")"
+    route="$(read_workflow_field "$workflow_file" '.closeoff.durable_learning_route' "")"
+    case "$route" in
+      ""|*"|"*) blockers+=("closeoff.durable_learning_route is missing or still a placeholder") ;;
+    esac
+    if [ "$(read_workflow_field "$workflow_file" '.closeoff.cleanup_decision' "")" = "" ]; then
+      warnings+=("closeoff.cleanup_decision is empty")
+    fi
+  fi
+
+  case "$task_path" in
+    "$CONTROL_ROOT/docs"/*)
+      warnings+=("docs-only workspace-control path; resume.md and SUMMARY.md may be intentionally absent")
+      ;;
+    *)
+      [ -f "$task_path/resume.md" ] || blockers+=("resume.md missing")
+      [ -f "$task_path/SUMMARY.md" ] || blockers+=("SUMMARY.md missing")
+      ;;
+  esac
+
+  if [ -n "$root" ]; then
+    [ -f "$root/SESSIONS.md" ] || blockers+=("SESSIONS.md missing at task root: $root")
+  fi
+
+  if [ ! -f "$ledger_file" ]; then
+    blockers+=("validation.jsonl missing")
+  else
+    jq -s empty "$ledger_file" >/dev/null
+    validation_entries="$(jq -s '[.[] | select(.type == "validation")] | length' "$ledger_file")"
+    if [ "$validation_entries" -eq 0 ]; then
+      case "$kind" in
+        investigation|review) warnings+=("no validation entries recorded for $kind task") ;;
+        *) blockers+=("no validation entries recorded") ;;
+      esac
+    fi
+  fi
+
+  echo "# Workflow Close Check"
+  echo "- task_path: $task_path"
+  echo "- task_root: ${root:-none}"
+  echo "- durable_learning_route: ${route:-missing}"
+  echo
+  echo "## Warnings"
+  if [ "${#warnings[@]}" -eq 0 ]; then
+    echo "- none"
+  else
+    printf -- "- %s\n" "${warnings[@]}"
+  fi
+  echo
+  echo "## Blockers"
+  if [ "${#blockers[@]}" -eq 0 ]; then
+    echo "- none"
+    return 0
+  fi
+  printf -- "- %s\n" "${blockers[@]}"
+  return 1
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  init) shift; cmd_init "$@" ;;
+  classify) shift; cmd_classify "$@" ;;
+  preflight) shift; cmd_preflight "$@" ;;
+  status) shift; cmd_status "$@" ;;
+  validation)
+    shift
+    subcmd="${1:-}"
+    case "$subcmd" in
+      add) shift; cmd_validation_add "$@" ;;
+      -h|--help|"") usage ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    ;;
+  validate) shift; cmd_validate "$@" ;;
+  context-pack) shift; cmd_context_pack "$@" ;;
+  experiment)
+    shift
+    subcmd="${1:-}"
+    case "$subcmd" in
+      init) shift; cmd_experiment_init "$@" ;;
+      check) shift; cmd_experiment_check "$@" ;;
+      record) shift; cmd_experiment_record "$@" ;;
+      -h|--help|"") usage ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    ;;
+  export) shift; cmd_export "$@" ;;
+  metrics) shift; cmd_metrics "$@" ;;
+  close-check) shift; cmd_close_check "$@" ;;
+  -h|--help|"") usage ;;
+  *) usage >&2; exit 2 ;;
+esac

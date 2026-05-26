@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TOOL="$ROOT/tools/workflowctl"
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+
+echo "# workflowctl self-test"
+
+"$TOOL" --help >/dev/null
+"$TOOL" classify --task-path "$ROOT/docs/research/2026-05-26-implementation-automation-overhaul" >/dev/null
+
+"$TOOL" init \
+  --task-path "$TMPDIR/task" \
+  --kind llm-eval \
+  --repo workspace-control \
+  --request "workflowctl self-test" >/dev/null
+
+test -f "$TMPDIR/task/workflow.json"
+test -f "$TMPDIR/task/validation.jsonl"
+jq empty "$TMPDIR/task/workflow.json"
+jq -s empty "$TMPDIR/task/validation.jsonl"
+
+"$TOOL" validation add \
+  --task-path "$TMPDIR/task" \
+  --command "git diff --check" \
+  --result pass \
+  --evidence "self-test" >/dev/null
+"$TOOL" validate --task-path "$TMPDIR/task" >/dev/null
+
+if "$TOOL" experiment check --task-path "$TMPDIR/task" >/dev/null 2>&1; then
+  echo "expected experiment check to fail before contract init" >&2
+  exit 1
+fi
+
+"$TOOL" experiment init \
+  --task-path "$TMPDIR/task" \
+  --mutable "prompts/program.md" \
+  --sealed-evaluator "fixtures/eval.jsonl" \
+  --budget "3 runs" \
+  --metric "accuracy" \
+  --keep-rule "keep if metric improves without complexity increase" >/dev/null
+"$TOOL" experiment check --task-path "$TMPDIR/task" >/dev/null
+"$TOOL" experiment record \
+  --task-path "$TMPDIR/task" \
+  --status keep \
+  --candidate self-test-candidate \
+  --metric "accuracy=1.0" \
+  --evidence "self-test" >/dev/null
+
+"$TOOL" context-pack --task-path "$TMPDIR/task" --max-bytes 2000 >/dev/null
+test -d "$TMPDIR/task/artifacts"
+find "$TMPDIR/task/artifacts" -type f -name 'context-pack-*.md' | grep -q .
+
+"$TOOL" export --task-path "$TMPDIR/task" --format pi-workflow > "$TMPDIR/pi-workflow.json"
+jq empty "$TMPDIR/pi-workflow.json"
+"$TOOL" export --task-path "$TMPDIR/task" --format agentic-runbook > "$TMPDIR/runbook.md"
+test -s "$TMPDIR/runbook.md"
+
+"$TOOL" metrics --root /workspace/detection-platform-metal-work >/dev/null
+
+if "$TOOL" close-check --task-path "$TMPDIR/task" >/dev/null 2>&1; then
+  echo "expected close-check to fail without resume/SUMMARY" >&2
+  exit 1
+fi
+
+echo "workflowctl self-test: pass"

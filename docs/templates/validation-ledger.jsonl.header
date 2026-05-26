@@ -1,0 +1,2 @@
+{"schema":"workspace-control.validation-ledger.v0","type":"header","task_path":"","created":"YYYY-MM-DDTHH:MM:SSZ"}
+{"type":"validation","time":"YYYY-MM-DDTHH:MM:SSZ","package":"P0","command":"","cwd":"","result":"pass | fail | skipped | blocked","evidence":"","notes":""}
