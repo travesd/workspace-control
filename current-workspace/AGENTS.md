@@ -9,12 +9,23 @@ reference docs. Load them only when the task needs them.
 
 ## Scope
 
-This workspace is for **detection-platform-metal** only: Docker Swarm + Redis
-Streams, default branch `main`.
+This workspace serves the Detection Platform ecosystem. In-scope repos:
+
+- **detection-platform-metal** — the platform itself (Docker Swarm + Redis
+  Streams, default branch `main`).
+- **detection-agentic-workflows** — agent-facing operator surface for the
+  platform (Pi CLI + deterministic JSON-envelope tools, default branch
+  `main`).
+
+Each repo follows the parallel-suffix convention: a read-only `<repo-name>`
+checkout, a `<repo-name>.worktrees/` tree for branch worktrees, and a
+`<repo-name>-work/` tree for task state. Cross-repo task lineage (a task in
+one `-work/` tree continuing or extending a task in another) is recorded in
+`LINEAGE.md` under the successor task, with a forward-pointer note appended
+to the origin task's `resume.md`.
 
 The old GKE-era `detection-platform` repo is legacy migration provenance under
-`/workspace/archive/`. Current metal task state belongs under
-`/workspace/detection-platform-metal-work/`.
+`/workspace/archive/`.
 
 ## Non-Negotiable Rules
 
@@ -51,9 +62,12 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
 | Path | Role |
 |---|---|
 | `/workspace/detection-platform-metal` | Read-only reference checkout on `main`. |
-| `/workspace/detection-platform-metal.worktrees/<branch>/` | Active branch worktrees. |
-| `/workspace/detection-platform-metal-work/` | Task state: `busy/`, `parked/`, `later/`, `done/`, `archived/`, `planned/`, `investigations/`. |
+| `/workspace/detection-platform-metal.worktrees/<branch>/` | Active branch worktrees for the metal repo. |
+| `/workspace/detection-platform-metal-work/` | Task state for metal work: `busy/`, `parked/`, `later/`, `done/`, `archived/`, `planned/`, `investigations/`. |
 | `/workspace/detection-platform-metal-work/knowledge/` | Workspace/product-adjacent knowledge for detection-platform-metal agents. |
+| `/workspace/detection-agentic-workflows` | Read-only reference checkout on `main` for the agentic-workflows repo. |
+| `/workspace/detection-agentic-workflows.worktrees/<branch>/` | Active branch worktrees for the agentic-workflows repo. |
+| `/workspace/detection-agentic-workflows-work/` | Task state for agentic-workflows work: same lifecycle dirs (`busy/`, `parked/`, …) as metal-work. |
 | `/workspace/datasets/` | Durable reusable data products and manifests. |
 | `/workspace/backups/` | Point-in-time platform state backups for restore planning. |
 | `/workspace/agent-skills/` | Canonical shared Claude/Codex skills. |
@@ -63,7 +77,8 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
 | `/workspace/archive/` | Legacy migration provenance only. |
 
 Worktree directory names mirror branch names with slashes replaced by dashes.
-Example: `feat/foo` -> `feat-foo`.
+Example: `feat/foo` -> `feat-foo`. The same applies for any in-scope repo:
+`<repo-name>.worktrees/<branch-with-dashes>/`.
 
 ## Tool Routing
 
@@ -78,6 +93,7 @@ Example: `feat/foo` -> `feat-foo`.
 | Detection UI browser review | `/workspace/tools/browser-mcp/browser-mcp` | `detection-ui-browser-review` skill |
 | Agent session records | `/workspace/tools/agents/sessionctl` | `/workspace/tools/agents/README.md` |
 | Shared skill validation/sync | `/workspace/tools/skills/skillctl` | `skill-maintainer` skill |
+| Run agentic workflows / Pi | `docker compose run --rm agentic pnpm <tool> …` from the agentic-workflows repo or its worktree | `/workspace/detection-agentic-workflows/README.md` |
 
 If a repo-local skill or README teaches host `cloudflared`, host `psql`, or
 provider-local CLI patterns, prefer the workspace skill/tooling in this table.
@@ -87,7 +103,13 @@ blockers, not evidence that multi-instance stacks are unsupported.
 
 ## Task Lifecycle
 
-The lifecycle root is `/workspace/detection-platform-metal-work/`.
+Each in-scope repo has its own lifecycle root (`<repo-name>-work/`). Currently
+populated:
+
+- `/workspace/detection-platform-metal-work/`
+- `/workspace/detection-agentic-workflows-work/`
+
+Within each root the standard lifecycle dirs apply:
 
 - `planned/`: scoped work that has not started.
 - `busy/`: active now, near-term PR/review/CI action, or protected critical
@@ -100,11 +122,15 @@ The lifecycle root is `/workspace/detection-platform-metal-work/`.
   is summarized or extracted.
 - `investigations/`: standalone research not yet tied to branch/task lifecycle.
 
-At session start, read:
+At session start, read the relevant repo's task-root files:
 
-1. `/workspace/detection-platform-metal-work/ACTIVE.md`
-2. `/workspace/detection-platform-metal-work/SESSIONS.md`
+1. `<repo-name>-work/ACTIVE.md`
+2. `<repo-name>-work/SESSIONS.md`
 3. relevant task `resume.md`
+
+When a task in one repo's `-work/` tree continues or extends a task in
+another's, record the relationship in `LINEAGE.md` under the successor task
+and append a forward-pointer paragraph to the origin task's `resume.md`.
 
 For non-trivial active tasks, keep `resume.md` current with task path,
 branch/worktree/PR, session IDs, transcript paths when known, status, and next
