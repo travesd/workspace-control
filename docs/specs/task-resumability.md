@@ -63,6 +63,7 @@ fields:
 - Current state:
 - Exact next action:
 - Branch/worktree/PR:
+- Related tasks:
 - Sessions/transcripts:
 - Validation done:
 - Validation still needed:

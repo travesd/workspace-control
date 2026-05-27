@@ -40,6 +40,7 @@ test -f "$TMPDIR/task/workflow.json"
 test -f "$TMPDIR/task/validation.jsonl"
 jq empty "$TMPDIR/task/workflow.json"
 jq -s empty "$TMPDIR/task/validation.jsonl"
+test "$(jq -c '.task.related_tasks' "$TMPDIR/task/workflow.json")" = "[]"
 
 "$TOOL" hydrate --task-path "$TMPDIR/task" >/dev/null
 test "$(jq -r '.task.branch' "$TMPDIR/task/workflow.json")" = "self-test-branch"

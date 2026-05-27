@@ -16,6 +16,9 @@ This workspace serves the Detection Platform ecosystem. In-scope repos:
 - **detection-agentic-workflows** — agent-facing operator surface for the
   platform (Pi CLI + deterministic JSON-envelope tools, default branch
   `main`).
+- **workspace-control** — reviewable source for workspace operating-model
+  changes, shared instructions, shared skills, and activation plans (default
+  branch `main`).
 
 Each repo follows the parallel-suffix convention: a read-only `<repo-name>`
 checkout, a `<repo-name>.worktrees/` tree for branch worktrees, and a
@@ -68,6 +71,9 @@ The old GKE-era `detection-platform` repo is legacy migration provenance under
 | `/workspace/detection-agentic-workflows` | Read-only reference checkout on `main` for the agentic-workflows repo. |
 | `/workspace/detection-agentic-workflows.worktrees/<branch>/` | Active branch worktrees for the agentic-workflows repo. |
 | `/workspace/detection-agentic-workflows-work/` | Task state for agentic-workflows work: same lifecycle dirs (`busy/`, `parked/`, …) as metal-work. |
+| `/workspace/workspace-control` | Reviewable source checkout on `main` for workspace operating-model changes. |
+| `/workspace/workspace-control.worktrees/<branch>/` | Active branch worktrees for non-trivial workspace-control branch work. |
+| `/workspace/workspace-control-work/` | Task state for workspace-control operating-model work: same lifecycle dirs as the other task roots. |
 | `/workspace/datasets/` | Durable reusable data products and manifests. |
 | `/workspace/backups/` | Point-in-time platform state backups for restore planning. |
 | `/workspace/agent-skills/` | Canonical shared Claude/Codex skills. |
@@ -85,6 +91,7 @@ Example: `feat/foo` -> `feat-foo`. The same applies for any in-scope repo:
 | Need | Use | Details |
 |---|---|---|
 | Workspace orientation | `/workspace/workspace-control/tools/workspace-status --brief` | `workspace-status` skill |
+| Central task discovery index | `/workspace/workspace-control/tools/task-index render` | `/workspace/workspace-control/docs/reference/task-index.md` |
 | Implementation gate, validation ledger, context pack, or swarm routing | `/workspace/workspace-control/tools/workflowctl` | `/workspace/workspace-control/docs/reference/workflowctl.md` |
 | Multi-worktree local stack | `/workspace/tools/gateway/gatewayctl` | `/workspace/tools/gateway/README.md` |
 | Local classifier/LLM env | `/workspace/classifiers.env` | Pass as an env file; do not print values |
@@ -109,6 +116,12 @@ populated:
 
 - `/workspace/detection-platform-metal-work/`
 - `/workspace/detection-agentic-workflows-work/`
+- `/workspace/workspace-control-work/`
+
+Use the owning repo's task root. Cross-repo initiatives use a coordinator task
+plus repo-specific child tasks, linked through `LINEAGE.md` and
+`workflow.json.related_tasks`. Discovery can be centralized through generated
+indexes, but task ownership stays in the repo task root.
 
 Within each root the standard lifecycle dirs apply:
 
@@ -248,6 +261,8 @@ Detailed dataset/cache semantics:
   `/workspace/workspace-control/docs/specs/task-lifecycle.md`
 - Task resumability spec:
   `/workspace/workspace-control/docs/specs/task-resumability.md`
+- Multi-repo task organization:
+  `/workspace/workspace-control/docs/specs/multi-repo-task-organization.md`
 - Thin-instructions audit:
   `/workspace/workspace-control/docs/reviews/2026-05-21-thin-instructions-audit.md`
 - Repo architecture and service-level rules:

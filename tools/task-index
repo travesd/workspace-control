@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONTROL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT="${WORKSPACE_ROOT:-/workspace}"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  tools/task-index render [--root <workspace>] [--out <dir>]
+
+Render a central task-discovery index from repo-owned task roots.
+
+Without --out, prints Markdown to stdout. With --out, writes:
+
+  <out>/TASKS.md
+  <out>/.task-index/index.json
+
+The index is generated discovery only. Authoritative task state remains in the
+owning <repo-name>-work/ task root.
+USAGE
+}
+
+need_jq() {
+  command -v jq >/dev/null 2>&1 || {
+    echo "task-index: jq is required" >&2
+    exit 2
+  }
+}
+
+now_utc() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+json_bool() {
+  if [ -e "$1" ]; then
+    echo true
+  else
+    echo false
+  fi
+}
+
+workflow_field() {
+  local workflow="$1" filter="$2" fallback="${3:-}"
+  if [ -f "$workflow" ] && jq empty "$workflow" >/dev/null 2>&1; then
+    jq -r --arg fallback "$fallback" "($filter) // \$fallback" "$workflow"
+  else
+    printf '%s\n' "$fallback"
+  fi
+}
+
+workflow_array_json() {
+  local workflow="$1" filter="$2"
+  if [ -f "$workflow" ] && jq empty "$workflow" >/dev/null 2>&1; then
+    jq -c "($filter) // []" "$workflow"
+  else
+    echo '[]'
+  fi
+}
+
+task_roots() {
+  cat <<EOF
+detection-platform-metal|$ROOT/detection-platform-metal-work
+detection-agentic-workflows|$ROOT/detection-agentic-workflows-work
+workspace-control|$ROOT/workspace-control-work
+EOF
+}
+
+find_tasks_in_state() {
+  local root="$1" state="$2" task
+  case "$state" in
+    planned)
+      find "$root/$state" -mindepth 1 -maxdepth 1 \( -type d -o -name '*.md' \) ! -name README.md -print0 | sort -z
+      ;;
+    done|archived)
+      while IFS= read -r -d '' task; do
+        if [ -f "$task/SUMMARY.md" ] || [ -f "$task/resume.md" ] || [ -f "$task/workflow.json" ]; then
+          printf '%s\0' "$task"
+        fi
+      done < <(find "$root/$state" -mindepth 1 -maxdepth 2 -type d -print0 | sort -z)
+      ;;
+    *)
+      find "$root/$state" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z
+      ;;
+  esac
+}
+
+render_entries_jsonl() {
+  local entry repo root state task workflow resume summary request kind updated branch worktree related
+  while IFS='|' read -r repo root; do
+    [ -n "$repo" ] || continue
+    if [ ! -d "$root" ]; then
+      jq -c -n \
+        --arg repo "$repo" \
+        --arg root "$root" \
+        '{type:"root",repo:$repo,task_root:$root,exists:false}'
+      continue
+    fi
+    jq -c -n \
+      --arg repo "$repo" \
+      --arg root "$root" \
+      '{type:"root",repo:$repo,task_root:$root,exists:true}'
+    for state in busy parked planned later done archived investigations; do
+      [ -d "$root/$state" ] || continue
+      while IFS= read -r -d '' task; do
+        workflow="$task/workflow.json"
+        resume="$task/resume.md"
+        summary="$task/SUMMARY.md"
+        request="$(workflow_field "$workflow" '.task.request' "$(basename "$task")")"
+        kind="$(workflow_field "$workflow" '.classification.kind' "")"
+        updated="$(workflow_field "$workflow" '.updated' "")"
+        branch="$(workflow_field "$workflow" '.task.branch' "")"
+        worktree="$(workflow_field "$workflow" '.task.worktree' "")"
+        related="$(workflow_array_json "$workflow" '.task.related_tasks')"
+        jq -c -n \
+          --arg type "task" \
+          --arg repo "$repo" \
+          --arg root "$root" \
+          --arg state "$state" \
+          --arg path "$task" \
+          --arg name "$(basename "$task")" \
+          --arg request "$request" \
+          --arg kind "$kind" \
+          --arg updated "$updated" \
+          --arg branch "$branch" \
+          --arg worktree "$worktree" \
+          --argjson has_resume "$(json_bool "$resume")" \
+          --argjson has_summary "$(json_bool "$summary")" \
+          --argjson has_workflow "$(json_bool "$workflow")" \
+          --argjson related "$related" \
+          '{
+            type:$type,
+            repo:$repo,
+            task_root:$root,
+            state:$state,
+            path:$path,
+            name:$name,
+            request:$request,
+            kind:$kind,
+            updated:$updated,
+            branch:$branch,
+            worktree:$worktree,
+            has_resume:$has_resume,
+            has_summary:$has_summary,
+            has_workflow:$has_workflow,
+            related_tasks:$related
+          }'
+      done < <(find_tasks_in_state "$root" "$state")
+    done
+  done < <(task_roots)
+}
+
+render_markdown() {
+  local json_file="$1" generated="$2"
+  cat <<EOF
+# Workspace Tasks
+
+Generated: $generated
+
+This is a generated discovery index. Repo-owned task roots remain
+authoritative.
+
+## Task Roots
+
+| Repo | Task Root | State |
+|---|---|---|
+EOF
+  jq -r '
+    [.items[] | select(.type == "root")]
+    | sort_by(.repo)
+    | .[]
+    | "| \(.repo) | `\(.task_root)` | \(if .exists then "present" else "missing" end) |"
+  ' "$json_file"
+  cat <<'EOF'
+
+## Active And Parked Work
+
+| Repo | State | Task | Request | Artifacts |
+|---|---|---|---|---|
+EOF
+  jq -r '
+    [.items[] | select(.type == "task" and (.state == "busy" or .state == "parked" or .state == "planned"))]
+    | sort_by(.repo, .state, .name)
+    | if length == 0 then
+        "| none | none | none | none | none |"
+      else
+        .[]
+        | (
+          [
+            (if .has_workflow then "workflow" else empty end),
+            (if .has_resume then "resume" else empty end),
+            (if .has_summary then "summary" else empty end)
+          ] | join(",")
+        ) as $artifacts
+        | "| \(.repo) | \(.state) | `\(.path)` | \(.request // .name) | \($artifacts // "") |"
+      end
+  ' "$json_file"
+  cat <<'EOF'
+
+## Recently Closed
+
+| Repo | State | Task | Request |
+|---|---|---|---|
+EOF
+  jq -r '
+    [.items[] | select(.type == "task" and (.state == "done" or .state == "archived"))]
+    | sort_by(.repo, .state, .path)
+    | reverse
+    | .[0:25]
+    | if length == 0 then
+        "| none | none | none | none |"
+      else
+        .[] | "| \(.repo) | \(.state) | `\(.path)` | \(.request // .name) |"
+      end
+  ' "$json_file"
+}
+
+cmd_render() {
+  need_jq
+  local out="" jsonl json generated
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --root) ROOT="${2:-}"; shift 2 ;;
+      --out) out="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) echo "task-index: unknown render argument: $1" >&2; usage; exit 2 ;;
+    esac
+  done
+
+  generated="$(now_utc)"
+  jsonl="$(mktemp)"
+  json="$(mktemp)"
+  trap 'rm -f "$jsonl" "$json"' RETURN
+  render_entries_jsonl > "$jsonl"
+  jq -s --arg schema "workspace-control.task-index.v0" --arg generated "$generated" \
+    '{schema:$schema,generated:$generated,items:.}' "$jsonl" > "$json"
+
+  if [ -n "$out" ]; then
+    mkdir -p "$out/.task-index"
+    render_markdown "$json" "$generated" > "$out/TASKS.md"
+    cp "$json" "$out/.task-index/index.json"
+    echo "# Task Index Written"
+    echo "- markdown: $out/TASKS.md"
+    echo "- json: $out/.task-index/index.json"
+  else
+    render_markdown "$json" "$generated"
+  fi
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  render) shift; cmd_render "$@" ;;
+  -h|--help|"") usage ;;
+  *) usage; exit 2 ;;
+esac

@@ -10,6 +10,8 @@
   `/workspace/workspace-control/docs/specs/task-lifecycle.md`
 - Task resumability spec:
   `/workspace/workspace-control/docs/specs/task-resumability.md`
+- Multi-repo task organization:
+  `/workspace/workspace-control/docs/specs/multi-repo-task-organization.md`
 - Thin-instructions audit:
   `/workspace/workspace-control/docs/reviews/2026-05-21-thin-instructions-audit.md`
 - Repo architecture and service-level rules:

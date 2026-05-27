@@ -531,7 +531,8 @@ cmd_init() {
         branch: "",
         worktree: "",
         pr: "",
-        issue: ""
+        issue: "",
+        related_tasks: []
       },
       classification: {
         kind: $kind,

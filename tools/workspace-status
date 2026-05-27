@@ -3,26 +3,50 @@ set -euo pipefail
 
 ROOT="${WORKSPACE_ROOT:-/workspace}"
 CONTROL_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORK_ROOT="$ROOT/detection-platform-metal-work"
 MODE="${1:---brief}"
 
+TASK_ROOTS=(
+  "detection-platform-metal|$ROOT/detection-platform-metal-work"
+  "detection-agentic-workflows|$ROOT/detection-agentic-workflows-work"
+  "workspace-control|$ROOT/workspace-control-work"
+)
+
+REPOS=(
+  "detection-platform-metal|$ROOT/detection-platform-metal"
+  "detection-agentic-workflows|$ROOT/detection-agentic-workflows"
+  "workspace-control|$ROOT/workspace-control"
+)
+
+usage() {
+  echo "usage: $0 [--brief|--full]" >&2
+  exit 2
+}
+
 count_state() {
-  local name="$1"
-  local path="$WORK_ROOT/$name"
+  local root="$1" name="$2" path="$root/$name"
   if [ ! -d "$path" ]; then
     echo 0
     return
   fi
-  if [ "$name" = "planned" ]; then
-    find "$path" -mindepth 1 -maxdepth 1 \( -type d -o -name '*.md' \) ! -name README.md | wc -l
-  else
-    find "$path" -mindepth 1 -maxdepth 1 -type d | wc -l
-  fi
+  case "$name" in
+    planned)
+      find "$path" -mindepth 1 -maxdepth 1 \( -type d -o -name '*.md' \) ! -name README.md | wc -l
+      ;;
+    done|archived)
+      find "$path" -mindepth 2 -maxdepth 2 -type d \
+        \( -exec test -f '{}/SUMMARY.md' ';' \
+           -o -exec test -f '{}/resume.md' ';' \
+           -o -exec test -f '{}/workflow.json' ';' \) \
+        -print | wc -l
+      ;;
+    *)
+      find "$path" -mindepth 1 -maxdepth 1 -type d | wc -l
+      ;;
+  esac
 }
 
 print_knowledge_health() {
-  local label="$1"
-  local dir="$2"
+  local label="$1" dir="$2" note_count stale_line stale_count index_state
   echo "### $label"
   if [ -d "$dir" ] && [ -x "$CONTROL_ROOT/tools/knowledgectl" ]; then
     note_count="$(find "$dir" -maxdepth 1 -type f -name '*.md' ! -name INDEX.md ! -name README.md ! -name TEMPLATE.md | wc -l)"
@@ -42,18 +66,120 @@ print_knowledge_health() {
   fi
 }
 
+print_active_root() {
+  local label="$1" root="$2"
+  if [ -f "$root/ACTIVE.md" ]; then
+    echo "### $label"
+    sed -n "1,${active_lines}p" "$root/ACTIVE.md"
+    if [ "$MODE" = "--brief" ]; then
+      echo
+      echo "_Use \`tools/workspace-status --full\` for the expanded $label active-work listing._"
+    fi
+    echo
+  elif [ -d "$root" ]; then
+    echo "### $label"
+    echo "- ACTIVE.md missing at $root/ACTIVE.md"
+    echo
+  fi
+}
+
+print_session_root() {
+  local label="$1" root="$2"
+  if [ -f "$root/SESSIONS.md" ]; then
+    echo "### $label"
+    sed -n '/^## Summary/,/^## Live Recorded Sessions/p' "$root/SESSIONS.md" | sed '$d'
+    echo
+  fi
+}
+
+print_current_mapping() {
+  local cwd entry label root repo_path
+  cwd="$(pwd -P)"
+  echo "## Current Directory"
+  echo "$cwd"
+  echo
+  echo "## Current Mapping"
+  for entry in "${TASK_ROOTS[@]}"; do
+    label="${entry%%|*}"
+    root="${entry#*|}"
+    case "$cwd" in
+      "$root"|"$root"/*)
+        echo "- task_root: $label ($root)"
+        return
+        ;;
+    esac
+  done
+  for entry in "${REPOS[@]}"; do
+    label="${entry%%|*}"
+    repo_path="${entry#*|}"
+    case "$cwd" in
+      "$repo_path"|"$repo_path"/*)
+        echo "- repo: $label ($repo_path)"
+        return
+        ;;
+      "$ROOT/$label.worktrees"/*)
+        echo "- worktree_root: $label ($ROOT/$label.worktrees)"
+        return
+        ;;
+    esac
+  done
+  echo "- no repo/task-root mapping detected"
+}
+
+print_task_counts() {
+  local entry label root name value line total=0
+  echo "## Task State Counts"
+  for entry in "${TASK_ROOTS[@]}"; do
+    label="${entry%%|*}"
+    root="${entry#*|}"
+    if [ ! -d "$root" ]; then
+      echo "- $label: root missing ($root)"
+      continue
+    fi
+    line="- $label:"
+    for name in busy parked planned later done archived investigations; do
+      value="$(count_state "$root" "$name")"
+      line="$line $name=$value"
+      total=$((total + value))
+    done
+    echo "$line"
+  done
+  echo "- total_task_state_entries: $total"
+}
+
+print_worktrees() {
+  local entry label repo_path
+  echo "## Worktrees"
+  for entry in "${REPOS[@]}"; do
+    label="${entry%%|*}"
+    repo_path="${entry#*|}"
+    echo "### $label"
+    if [ -d "$repo_path" ] && git -C "$repo_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      git -C "$repo_path" worktree list --porcelain | awk '
+        /^worktree / {wt=$0; sub(/^worktree /, "", wt); print "- " wt}
+        /^branch / {print "  " $0}
+      ' | sed -n "1,${worktree_lines}p"
+      if [ "$MODE" = "--brief" ]; then
+        echo "_Use \`tools/workspace-status --full\` for more $label worktrees._"
+      fi
+    else
+      echo "- repo not found: $repo_path"
+    fi
+    echo
+  done
+}
+
 case "$MODE" in
   --brief|"")
-    active_lines=50
-    worktree_lines=40
+    active_lines=45
+    worktree_lines=24
     ;;
   --full)
     active_lines=200
     worktree_lines=200
     ;;
   *)
-    echo "usage: $0 [--brief|--full]" >&2
-    exit 2
+    usage
     ;;
 esac
 
@@ -61,56 +187,46 @@ echo "# Workspace Status"
 date -u +"Generated: %Y-%m-%d %H:%M:%SZ"
 echo
 
-if [ -f "$WORK_ROOT/ACTIVE.md" ]; then
-  echo "## Active Work"
-  sed -n "1,${active_lines}p" "$WORK_ROOT/ACTIVE.md"
-  if [ "$MODE" = "--brief" ]; then
-    echo
-    echo "_Use \`tools/workspace-status --full\` for the expanded active-work listing._"
-  fi
-  echo
-else
-  echo "Missing ACTIVE.md at $WORK_ROOT/ACTIVE.md"
-fi
+echo "## Active Work"
+for entry in "${TASK_ROOTS[@]}"; do
+  print_active_root "${entry%%|*}" "${entry#*|}"
+done
 
-if [ -f "$WORK_ROOT/SESSIONS.md" ]; then
-  echo "## Session Summary"
-  sed -n '/^## Summary/,/^## Live Recorded Sessions/p' "$WORK_ROOT/SESSIONS.md" | sed '$d'
-  echo
-fi
+echo "## Session Summary"
+for entry in "${TASK_ROOTS[@]}"; do
+  print_session_root "${entry%%|*}" "${entry#*|}"
+done
 
 echo "## Knowledge Health"
 print_knowledge_health "Workspace-Control Operating Model" "$CONTROL_ROOT/knowledge"
-print_knowledge_health "Detection-Platform-Metal Workspace" "$WORK_ROOT/knowledge"
+print_knowledge_health "Detection-Platform-Metal Workspace" "$ROOT/detection-platform-metal-work/knowledge"
 echo
 
-echo "## Task State Counts"
-for name in busy parked planned later done archived investigations; do
-  printf -- "- %s: %s\n" "$name" "$(count_state "$name")"
-done
+print_task_counts
 echo
 
-echo "## Current Directory"
-pwd
+print_current_mapping
 echo
 
-echo "## Worktrees"
-if [ -d "$ROOT/detection-platform-metal" ]; then
-  git -C "$ROOT/detection-platform-metal" worktree list --porcelain | awk '
-    /^worktree / {wt=$0; sub(/^worktree /, "", wt); print "- " wt}
-    /^branch / {print "  " $0}
-  ' | sed -n "1,${worktree_lines}p"
-  if [ "$MODE" = "--brief" ]; then
-    echo
-    echo "_Use \`tools/workspace-status --full\` for more worktrees._"
-  fi
+echo "## Central Task Index"
+if [ -f "$ROOT/TASKS.md" ]; then
+  echo "- markdown: $ROOT/TASKS.md"
 else
-  echo "- detection-platform-metal repo not found"
+  echo "- markdown: not generated yet ($ROOT/TASKS.md)"
 fi
-
+if [ -f "$ROOT/.task-index/index.json" ]; then
+  echo "- json: $ROOT/.task-index/index.json"
+else
+  echo "- json: not generated yet ($ROOT/.task-index/index.json)"
+fi
 echo
+
+print_worktrees
+
 echo "## Intake Checklist"
-echo "- For non-trivial work, create or identify a task dir."
-echo "- For branch work, use a detection-platform-metal worktree."
+echo "- For non-trivial work, create or identify a task dir in the owning repo task root."
+echo "- For branch work, use the owning repo worktree root."
+echo "- For cross-repo work, create a coordinator task plus repo-specific child tasks."
+echo "- Link cross-repo tasks with LINEAGE.md and workflow.json.related_tasks."
 echo "- Record long-running agent sessions in task resume.md."
 echo "- Keep data products in /workspace/datasets, not task dirs."

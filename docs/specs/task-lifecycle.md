@@ -5,7 +5,8 @@ remains intentional and user-approved
 
 Date: 2026-05-21
 
-This spec defines the task states for `detection-platform-metal-work`.
+This spec defines task states for the workspace task roots. The multi-repo
+ownership model is defined in `docs/specs/multi-repo-task-organization.md`.
 
 Task state and task resumability are related but separate. This spec defines
 where task context belongs. The resume packet, notes ledger, and quality score
@@ -18,16 +19,18 @@ Task state should describe the next operational relationship to the work, not ju
 Each task has one primary lifecycle state. Substates are metadata inside
 `resume.md` or `SUMMARY.md`; they are not extra top-level directories.
 
-The normal task lifecycle root is:
+The normal task lifecycle roots are:
 
 ```text
 /workspace/detection-platform-metal-work/
+/workspace/detection-agentic-workflows-work/
+/workspace/workspace-control-work/
 ```
 
-Future task archives use:
+Future task archives use the owning task root:
 
 ```text
-/workspace/detection-platform-metal-work/archived/YYYYMMDD-<reason>/<task>/
+/workspace/<repo-name>-work/archived/YYYYMMDD-<reason>/<task>/
 ```
 
 The top-level `/workspace/archive/` is the legacy migration/provenance
@@ -242,7 +245,7 @@ Criteria:
 Destination:
 
 ```text
-/workspace/detection-platform-metal-work/archived/YYYYMMDD-<reason>/<task>/
+/workspace/<repo-name>-work/archived/YYYYMMDD-<reason>/<task>/
 ```
 
 Required before archive:

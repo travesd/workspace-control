@@ -11,6 +11,7 @@ Paste this block into `resume.md` for any non-trivial task.
 - Current state:
 - Exact next action:
 - Branch/worktree/PR:
+- Related tasks:
 - Sessions/transcripts:
 - Validation done:
 - Validation still needed:
