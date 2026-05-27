@@ -85,6 +85,7 @@ Example: `feat/foo` -> `feat-foo`. The same applies for any in-scope repo:
 | Need | Use | Details |
 |---|---|---|
 | Workspace orientation | `/workspace/workspace-control/tools/workspace-status --brief` | `workspace-status` skill |
+| Implementation gate, validation ledger, context pack, or swarm routing | `/workspace/workspace-control/tools/workflowctl` | `/workspace/workspace-control/docs/reference/workflowctl.md` |
 | Multi-worktree local stack | `/workspace/tools/gateway/gatewayctl` | `/workspace/tools/gateway/README.md` |
 | Local classifier/LLM env | `/workspace/classifiers.env` | Pass as an env file; do not print values |
 | Detection DB investigation | `/workspace/tools/db/dbctl` | `db-readonly-investigation` skill |
@@ -218,6 +219,10 @@ Detailed dataset/cache semantics:
 
 - For investigations, multi-step fixes, or changes touching three or more
   files, state a short plan before executing.
+- When exploratory code discussion turns into non-trivial implementation,
+  create or update an implementation brief and pass the `workflowctl` gate
+  before edits. Record a swarm routing decision before background agents;
+  `none` is valid, and the coordinator owns integration and validation.
 - For non-trivial work, include a review checkpoint focused on scope, drift,
   validation, operator impact, and missing tests.
 - For LLM workflow quality changes, preserve multi-provider operation and
