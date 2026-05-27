@@ -24,10 +24,17 @@ usage:
   tools/workflowctl validation import --task-path <path> [--source <resume.md>] [--package <id>]
   tools/workflowctl validate --task-path <path>
   tools/workflowctl context-pack --task-path <path> [--output <path>|-] [--max-bytes <n>]
+  tools/workflowctl gate init --task-path <path> [--scope-bucket trivial|standard|wide] [--decision continue-exploration|promote-to-implementation|stop]
+  tools/workflowctl gate check --task-path <path>
+  tools/workflowctl gate record --task-path <path> --decision <decision> [--scope-bucket trivial|standard|wide] [--brief <path>] [--prd <path>] [--goal <text>] [--problem <text>] [--write-scope <csv>] [--source-read <csv>] [--validation <csv>]
+  tools/workflowctl swarm init --task-path <path> --decision none|review-only|parallel-read|parallel-implement [--coordinator <text>] [--loop-cap <text>]
+  tools/workflowctl swarm check --task-path <path>
+  tools/workflowctl swarm assign --task-path <path> --lane <id> --role <role> --task <text> [--mutable <csv>] [--sealed <csv>] [--worktree <path>] [--budget <text>] [--preflight <text>] [--stop <csv>] [--handoff <path>]
+  tools/workflowctl swarm record --task-path <path> --lane <id> --status complete|blocked|discard [--handoff <path>] [--evidence <text>] [--notes <text>]
   tools/workflowctl experiment init --task-path <path> --mutable <csv> --sealed-evaluator <csv> --budget <text> --metric <text> --keep-rule <text> [--complexity-delta <text>]
   tools/workflowctl experiment check --task-path <path>
   tools/workflowctl experiment record --task-path <path> --status keep|discard|crash [--candidate <id>] [--metric <text>] [--evidence <text>] [--complexity-delta <text>] [--notes <text>]
-  tools/workflowctl export --task-path <path> --format pi-workflow|agentic-runbook
+  tools/workflowctl export --task-path <path> --format pi-workflow|agentic-runbook|swarm-runbook
   tools/workflowctl metrics [--root <path>]
   tools/workflowctl close-check --task-path <path>
 
@@ -118,6 +125,41 @@ valid_validation_result() {
 valid_experiment_status() {
   case "$1" in
     keep|discard|crash) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_scope_bucket() {
+  case "$1" in
+    trivial|standard|wide) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_gate_decision() {
+  case "$1" in
+    continue-exploration|promote-to-implementation|stop) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_swarm_decision() {
+  case "$1" in
+    none|review-only|parallel-read|parallel-implement) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_swarm_role() {
+  case "$1" in
+    source-read|implementation|validation|review) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_swarm_status() {
+  case "$1" in
+    pending|running|complete|blocked|discard) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -516,6 +558,53 @@ cmd_init() {
         sealed_evaluator: [],
         context_pack: ""
       },
+      implementation_gate: {
+        decision: "continue-exploration",
+        scope_bucket: "",
+        exploration_sources: [],
+        source_read: [],
+        problem_statement: "",
+        goal: "",
+        non_goals: [],
+        implementation_home: $lifecycle_home,
+        brief_path: "",
+        prd_path: "",
+        write_scope: [],
+        sealed_surfaces: [],
+        validation_plan: [],
+        open_questions: [],
+        approval_stops: ($checkpoints_csv | csv),
+        approved_by: "",
+        approval_evidence: ""
+      },
+      swarm: {
+        enabled: false,
+        router_decision: "",
+        coordinator: "primary-agent",
+        shared_context_pack: "",
+        merge_policy: "coordinator-applies",
+        conflict_policy: "stop-and-report",
+        loop_cap: "",
+        agents: [],
+        forbidden_actions: [
+          "push",
+          "pr",
+          "merge",
+          "live-activation",
+          "production-write",
+          "external-write",
+          "destructive-cleanup"
+        ]
+      },
+      stage_artifacts: {
+        brief: "",
+        context_pack: "",
+        worker_briefs: [],
+        worker_handoffs: [],
+        reviews: [],
+        polish: [],
+        ship: ""
+      },
       experiment: {
         budget: "",
         metric: "",
@@ -706,6 +795,23 @@ cmd_status() {
       "- complexity: \(.classification.complexity // "missing")",
       "- automation: \(.mode.automation // "missing")",
       "- risk: \((.classification.risk // []) | join(","))"
+    ' "$workflow_file"
+    echo
+    echo "## Implementation Gate"
+    jq -r '
+      "- decision: \(.implementation_gate.decision // "missing")",
+      "- scope_bucket: \(.implementation_gate.scope_bucket // "missing")",
+      "- brief: \(.implementation_gate.brief_path // "missing")",
+      "- source_read_entries: \((.implementation_gate.source_read // []) | length)",
+      "- write_scope_entries: \((.implementation_gate.write_scope // []) | length)"
+    ' "$workflow_file"
+    echo
+    echo "## Swarm"
+    jq -r '
+      "- decision: \(.swarm.router_decision // "missing")",
+      "- enabled: \(.swarm.enabled // false)",
+      "- coordinator: \(.swarm.coordinator // "missing")",
+      "- agents: \((.swarm.agents // []) | length)"
     ' "$workflow_file"
     echo
     echo "## Packages"
@@ -991,7 +1097,18 @@ cmd_context_pack() {
   experiment_file="$(experiment_file_for "$task_path")"
   if [ "$output" != "-" ] && [ -f "$workflow_file" ]; then
     tmp="$(mktemp)"
-    jq --arg output "$output" '.surfaces.context_pack = $output' "$workflow_file" > "$tmp"
+    jq --arg output "$output" '
+      .surfaces.context_pack = $output
+      | .stage_artifacts = ((.stage_artifacts // {}) + {
+          context_pack: $output,
+          worker_briefs: (.stage_artifacts.worker_briefs // []),
+          worker_handoffs: (.stage_artifacts.worker_handoffs // []),
+          reviews: (.stage_artifacts.reviews // []),
+          polish: (.stage_artifacts.polish // []),
+          ship: (.stage_artifacts.ship // "")
+        })
+      | .swarm.shared_context_pack = (if (.swarm.shared_context_pack // "") == "" then $output else .swarm.shared_context_pack end)
+    ' "$workflow_file" > "$tmp"
     mv "$tmp" "$workflow_file"
   fi
   tmp="$(mktemp)"
@@ -1056,6 +1173,649 @@ cmd_context_pack() {
     echo "- task_path: $task_path"
     echo "- output: $output"
   fi
+}
+
+cmd_gate_init() {
+  need_jq
+  local task_path="" scope_bucket="" decision="" workflow_file tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --scope-bucket) scope_bucket="${2:-}"; shift 2 ;;
+      --decision) decision="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown gate init argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "gate init requires --task-path"
+  [ -z "$scope_bucket" ] || valid_scope_bucket "$scope_bucket" || die "invalid scope bucket: $scope_bucket"
+  [ -z "$decision" ] || valid_gate_decision "$decision" || die "invalid gate decision: $decision"
+
+  workflow_file="$(workflow_file_for "$task_path")"
+  if [ ! -f "$workflow_file" ]; then
+    cmd_init --task-path "$task_path" >/dev/null
+  fi
+  jq empty "$workflow_file" >/dev/null
+
+  tmp="$(mktemp)"
+  jq \
+    --arg updated "$(now_utc)" \
+    --arg task_path "$task_path" \
+    --arg scope_bucket "$scope_bucket" \
+    --arg decision "$decision" \
+    '
+    def gate_defaults: {
+      decision: "continue-exploration",
+      scope_bucket: "",
+      exploration_sources: [],
+      source_read: [],
+      problem_statement: "",
+      goal: "",
+      non_goals: [],
+      implementation_home: $task_path,
+      brief_path: "",
+      prd_path: "",
+      write_scope: [],
+      sealed_surfaces: [],
+      validation_plan: [],
+      open_questions: [],
+      approval_stops: (.mode.human_checkpoints // []),
+      approved_by: "",
+      approval_evidence: ""
+    };
+    .updated = $updated
+    | .implementation_gate = (gate_defaults + (.implementation_gate // {}))
+    | .implementation_gate.implementation_home = ((.implementation_gate.implementation_home // "") as $home | if $home == "" then $task_path else $home end)
+    | .implementation_gate.approval_stops = (if ((.implementation_gate.approval_stops // []) | length) == 0 then (.mode.human_checkpoints // []) else .implementation_gate.approval_stops end)
+    | .stage_artifacts = ((.stage_artifacts // {}) + {
+        brief: (.stage_artifacts.brief // ""),
+        context_pack: (.stage_artifacts.context_pack // .surfaces.context_pack // ""),
+        worker_briefs: (.stage_artifacts.worker_briefs // []),
+        worker_handoffs: (.stage_artifacts.worker_handoffs // []),
+        reviews: (.stage_artifacts.reviews // []),
+        polish: (.stage_artifacts.polish // []),
+        ship: (.stage_artifacts.ship // "")
+      })
+    | (if $scope_bucket != "" then .implementation_gate.scope_bucket = $scope_bucket else . end)
+    | (if $decision != "" then .implementation_gate.decision = $decision else . end)
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  echo "# Implementation Gate Initialized"
+  echo "- task_path: $task_path"
+  echo "- workflow: $workflow_file"
+  echo "- decision: $(read_workflow_field "$workflow_file" '.implementation_gate.decision' "")"
+  echo "- scope_bucket: $(read_workflow_field "$workflow_file" '.implementation_gate.scope_bucket' "unset")"
+}
+
+cmd_gate_record() {
+  need_jq
+  local task_path="" decision="" scope_bucket="" brief_path="" prd_path="" goal="" problem="" implementation_home=""
+  local source_read_csv="" exploration_source_csv="" write_scope_csv="" sealed_surface_csv="" validation_csv=""
+  local non_goal_csv="" open_question_csv="" approval_stop_csv="" approved_by="" approval_evidence=""
+  local workflow_file tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --decision) decision="${2:-}"; shift 2 ;;
+      --scope-bucket) scope_bucket="${2:-}"; shift 2 ;;
+      --brief) brief_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --prd) prd_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --goal) goal="${2:-}"; shift 2 ;;
+      --problem) problem="${2:-}"; shift 2 ;;
+      --implementation-home) implementation_home="$(normalize_path "${2:-}")"; shift 2 ;;
+      --source-read) source_read_csv="${2:-}"; shift 2 ;;
+      --exploration-source) exploration_source_csv="${2:-}"; shift 2 ;;
+      --write-scope) write_scope_csv="${2:-}"; shift 2 ;;
+      --sealed-surface) sealed_surface_csv="${2:-}"; shift 2 ;;
+      --validation) validation_csv="${2:-}"; shift 2 ;;
+      --non-goal) non_goal_csv="${2:-}"; shift 2 ;;
+      --open-question) open_question_csv="${2:-}"; shift 2 ;;
+      --approval-stop) approval_stop_csv="${2:-}"; shift 2 ;;
+      --approved-by) approved_by="${2:-}"; shift 2 ;;
+      --approval-evidence) approval_evidence="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown gate record argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "gate record requires --task-path"
+  [ -n "$decision" ] || die "gate record requires --decision"
+  valid_gate_decision "$decision" || die "invalid gate decision: $decision"
+  [ -z "$scope_bucket" ] || valid_scope_bucket "$scope_bucket" || die "invalid scope bucket: $scope_bucket"
+
+  workflow_file="$(workflow_file_for "$task_path")"
+  if [ ! -f "$workflow_file" ]; then
+    cmd_gate_init --task-path "$task_path" >/dev/null
+  fi
+  jq empty "$workflow_file" >/dev/null
+
+  tmp="$(mktemp)"
+  jq \
+    --arg updated "$(now_utc)" \
+    --arg task_path "$task_path" \
+    --arg decision "$decision" \
+    --arg scope_bucket "$scope_bucket" \
+    --arg brief_path "$brief_path" \
+    --arg prd_path "$prd_path" \
+    --arg goal "$goal" \
+    --arg problem "$problem" \
+    --arg implementation_home "$implementation_home" \
+    --arg source_read_csv "$source_read_csv" \
+    --arg exploration_source_csv "$exploration_source_csv" \
+    --arg write_scope_csv "$write_scope_csv" \
+    --arg sealed_surface_csv "$sealed_surface_csv" \
+    --arg validation_csv "$validation_csv" \
+    --arg non_goal_csv "$non_goal_csv" \
+    --arg open_question_csv "$open_question_csv" \
+    --arg approval_stop_csv "$approval_stop_csv" \
+    --arg approved_by "$approved_by" \
+    --arg approval_evidence "$approval_evidence" \
+    '
+    def csv($s): $s | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0));
+    def merge_csv($old; $s): if $s == "" then ($old // []) else ((($old // []) + csv($s)) | unique) end;
+    def gate_defaults: {
+      decision: "continue-exploration",
+      scope_bucket: "",
+      exploration_sources: [],
+      source_read: [],
+      problem_statement: "",
+      goal: "",
+      non_goals: [],
+      implementation_home: $task_path,
+      brief_path: "",
+      prd_path: "",
+      write_scope: [],
+      sealed_surfaces: [],
+      validation_plan: [],
+      open_questions: [],
+      approval_stops: (.mode.human_checkpoints // []),
+      approved_by: "",
+      approval_evidence: ""
+    };
+    .updated = $updated
+    | .implementation_gate = (gate_defaults + (.implementation_gate // {}))
+    | .stage_artifacts = ((.stage_artifacts // {}) + {
+        brief: (.stage_artifacts.brief // ""),
+        context_pack: (.stage_artifacts.context_pack // .surfaces.context_pack // ""),
+        worker_briefs: (.stage_artifacts.worker_briefs // []),
+        worker_handoffs: (.stage_artifacts.worker_handoffs // []),
+        reviews: (.stage_artifacts.reviews // []),
+        polish: (.stage_artifacts.polish // []),
+        ship: (.stage_artifacts.ship // "")
+      })
+    | .implementation_gate.decision = $decision
+    | (if $scope_bucket != "" then .implementation_gate.scope_bucket = $scope_bucket else . end)
+    | (if $brief_path != "" then .implementation_gate.brief_path = $brief_path | .stage_artifacts.brief = $brief_path else . end)
+    | (if $prd_path != "" then .implementation_gate.prd_path = $prd_path else . end)
+    | (if $goal != "" then .implementation_gate.goal = $goal else . end)
+    | (if $problem != "" then .implementation_gate.problem_statement = $problem else . end)
+    | (if $implementation_home != "" then .implementation_gate.implementation_home = $implementation_home else . end)
+    | .implementation_gate.source_read = merge_csv(.implementation_gate.source_read; $source_read_csv)
+    | .implementation_gate.exploration_sources = merge_csv(.implementation_gate.exploration_sources; $exploration_source_csv)
+    | .implementation_gate.write_scope = merge_csv(.implementation_gate.write_scope; $write_scope_csv)
+    | .implementation_gate.sealed_surfaces = merge_csv(.implementation_gate.sealed_surfaces; $sealed_surface_csv)
+    | .implementation_gate.validation_plan = merge_csv(.implementation_gate.validation_plan; $validation_csv)
+    | .implementation_gate.non_goals = merge_csv(.implementation_gate.non_goals; $non_goal_csv)
+    | .implementation_gate.open_questions = merge_csv(.implementation_gate.open_questions; $open_question_csv)
+    | .implementation_gate.approval_stops = (if $approval_stop_csv != "" then merge_csv(.implementation_gate.approval_stops; $approval_stop_csv) elif ((.implementation_gate.approval_stops // []) | length) == 0 then (.mode.human_checkpoints // []) else .implementation_gate.approval_stops end)
+    | (if $approved_by != "" then .implementation_gate.approved_by = $approved_by else . end)
+    | (if $approval_evidence != "" then .implementation_gate.approval_evidence = $approval_evidence else . end)
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  echo "# Implementation Gate Recorded"
+  echo "- task_path: $task_path"
+  echo "- decision: $decision"
+  echo "- scope_bucket: $(read_workflow_field "$workflow_file" '.implementation_gate.scope_bucket' "unset")"
+  echo "- brief: $(read_workflow_field "$workflow_file" '.implementation_gate.brief_path' "unset")"
+}
+
+cmd_gate_check() {
+  need_jq
+  local task_path="" workflow_file decision="" scope_bucket="" brief_path="" brief_resolved="" swarm_decision=""
+  local source_count=0 write_count=0 validation_count=0 approval_count=0
+  local blockers=() warnings=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown gate check argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "gate check requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+
+  [ -d "$task_path" ] || blockers+=("task path does not exist")
+  if [ ! -f "$workflow_file" ]; then
+    blockers+=("workflow.json missing; run workflowctl init first")
+  elif ! jq empty "$workflow_file" >/dev/null 2>&1; then
+    blockers+=("workflow.json is invalid JSON")
+  elif [ "$(jq 'has("implementation_gate")' "$workflow_file")" != "true" ]; then
+    blockers+=("implementation_gate missing; run workflowctl gate init first")
+  else
+    decision="$(read_workflow_field "$workflow_file" '.implementation_gate.decision' "")"
+    scope_bucket="$(read_workflow_field "$workflow_file" '.implementation_gate.scope_bucket' "")"
+    brief_path="$(read_workflow_field "$workflow_file" '.implementation_gate.brief_path' "")"
+    swarm_decision="$(read_workflow_field "$workflow_file" '.swarm.router_decision' "")"
+    source_count="$(jq '.implementation_gate.source_read // [] | length' "$workflow_file")"
+    write_count="$(jq '.implementation_gate.write_scope // [] | length' "$workflow_file")"
+    validation_count="$(jq '(((.implementation_gate.validation_plan // []) + (.preflight.validation_plan // [])) | unique | length)' "$workflow_file")"
+    approval_count="$(jq '.implementation_gate.approval_stops // [] | length' "$workflow_file")"
+
+    [ -n "$decision" ] && valid_gate_decision "$decision" || blockers+=("implementation_gate.decision is missing or invalid")
+    [ -z "$scope_bucket" ] || valid_scope_bucket "$scope_bucket" || blockers+=("implementation_gate.scope_bucket is invalid: $scope_bucket")
+    [ -z "$swarm_decision" ] || valid_swarm_decision "$swarm_decision" || blockers+=("swarm.router_decision is invalid: $swarm_decision")
+
+    case "$decision" in
+      continue-exploration)
+        blockers+=("gate decision is continue-exploration; implementation is not cleared")
+        ;;
+      stop)
+        blockers+=("gate decision is stop")
+        ;;
+      promote-to-implementation)
+        [ -n "$scope_bucket" ] || blockers+=("implementation_gate.scope_bucket is empty")
+        [ "$(read_workflow_field "$workflow_file" '.implementation_gate.goal' "")" != "" ] || blockers+=("implementation_gate.goal is empty")
+        [ "$source_count" -gt 0 ] || blockers+=("implementation_gate.source_read is empty")
+        [ "$write_count" -gt 0 ] || blockers+=("implementation_gate.write_scope is empty")
+        [ "$validation_count" -gt 0 ] || blockers+=("implementation validation plan is empty")
+        [ "$approval_count" -gt 0 ] || blockers+=("implementation_gate.approval_stops is empty")
+        [ -n "$brief_path" ] || blockers+=("implementation_gate.brief_path is empty")
+        if [ -n "$brief_path" ]; then
+          case "$brief_path" in
+            /*) brief_resolved="$brief_path" ;;
+            *) brief_resolved="$task_path/$brief_path" ;;
+          esac
+          [ -f "$brief_resolved" ] || blockers+=("implementation brief does not exist: $brief_path")
+        fi
+        ;;
+    esac
+
+    case "$scope_bucket:$swarm_decision" in
+      trivial:parallel-implement)
+        warnings+=("trivial scope bucket rarely needs parallel-implement swarm routing")
+        ;;
+      standard:none|wide:none)
+        warnings+=("$scope_bucket scope bucket has swarm.router_decision=none; confirm the implementation is still coordinator-only")
+        ;;
+      standard:|wide:)
+        warnings+=("$scope_bucket scope bucket has no swarm routing decision recorded")
+        ;;
+    esac
+  fi
+
+  echo "# Implementation Gate Check"
+  echo "- task_path: $task_path"
+  echo "- decision: ${decision:-missing}"
+  echo "- scope_bucket: ${scope_bucket:-missing}"
+  echo "- source_read_entries: $source_count"
+  echo "- write_scope_entries: $write_count"
+  echo "- validation_entries: $validation_count"
+  echo
+  echo "## Warnings"
+  if [ "${#warnings[@]}" -eq 0 ]; then
+    echo "- none"
+  else
+    printf -- "- %s\n" "${warnings[@]}"
+  fi
+  echo
+  echo "## Blockers"
+  if [ "${#blockers[@]}" -eq 0 ]; then
+    echo "- none"
+    return 0
+  fi
+  printf -- "- %s\n" "${blockers[@]}"
+  return 1
+}
+
+cmd_swarm_init() {
+  need_jq
+  local task_path="" decision="" coordinator="" loop_cap="" workflow_file tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --decision) decision="${2:-}"; shift 2 ;;
+      --coordinator) coordinator="${2:-}"; shift 2 ;;
+      --loop-cap) loop_cap="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown swarm init argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "swarm init requires --task-path"
+  [ -n "$decision" ] || die "swarm init requires --decision"
+  valid_swarm_decision "$decision" || die "invalid swarm decision: $decision"
+
+  workflow_file="$(workflow_file_for "$task_path")"
+  if [ ! -f "$workflow_file" ]; then
+    cmd_init --task-path "$task_path" >/dev/null
+  fi
+  jq empty "$workflow_file" >/dev/null
+
+  tmp="$(mktemp)"
+  jq \
+    --arg updated "$(now_utc)" \
+    --arg decision "$decision" \
+    --arg coordinator "$coordinator" \
+    --arg loop_cap "$loop_cap" \
+    '
+    def swarm_defaults: {
+      enabled: false,
+      router_decision: "",
+      coordinator: "primary-agent",
+      shared_context_pack: "",
+      merge_policy: "coordinator-applies",
+      conflict_policy: "stop-and-report",
+      loop_cap: "",
+      agents: [],
+      forbidden_actions: [
+        "push",
+        "pr",
+        "merge",
+        "live-activation",
+        "production-write",
+        "external-write",
+        "destructive-cleanup"
+      ]
+    };
+    .updated = $updated
+    | .swarm = (swarm_defaults + (.swarm // {}))
+    | .swarm.router_decision = $decision
+    | .swarm.enabled = ($decision != "none")
+    | (if $coordinator != "" then .swarm.coordinator = $coordinator else . end)
+    | (if $loop_cap != "" then .swarm.loop_cap = $loop_cap else . end)
+    | .swarm.shared_context_pack = (if (.swarm.shared_context_pack // "") == "" then (.surfaces.context_pack // .stage_artifacts.context_pack // "") else .swarm.shared_context_pack end)
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  echo "# Swarm Contract Initialized"
+  echo "- task_path: $task_path"
+  echo "- decision: $decision"
+  echo "- enabled: $([ "$decision" = "none" ] && echo false || echo true)"
+}
+
+cmd_swarm_assign() {
+  need_jq
+  local task_path="" lane="" role="" task_text="" mutable_csv="" sealed_csv="" worktree="" budget="" preflight="" stop_csv="" handoff=""
+  local workflow_file tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --lane) lane="${2:-}"; shift 2 ;;
+      --role) role="${2:-}"; shift 2 ;;
+      --task) task_text="${2:-}"; shift 2 ;;
+      --mutable) mutable_csv="${2:-}"; shift 2 ;;
+      --sealed) sealed_csv="${2:-}"; shift 2 ;;
+      --worktree) worktree="$(normalize_path "${2:-}")"; shift 2 ;;
+      --budget) budget="${2:-}"; shift 2 ;;
+      --preflight) preflight="${2:-}"; shift 2 ;;
+      --stop) stop_csv="${2:-}"; shift 2 ;;
+      --handoff) handoff="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown swarm assign argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "swarm assign requires --task-path"
+  [ -n "$lane" ] || die "swarm assign requires --lane"
+  [ -n "$role" ] || die "swarm assign requires --role"
+  [ -n "$task_text" ] || die "swarm assign requires --task"
+  valid_swarm_role "$role" || die "invalid swarm role: $role"
+
+  workflow_file="$(workflow_file_for "$task_path")"
+  [ -f "$workflow_file" ] || die "workflow.json missing; run workflowctl init first"
+  jq empty "$workflow_file" >/dev/null
+
+  tmp="$(mktemp)"
+  jq \
+    --arg updated "$(now_utc)" \
+    --arg lane "$lane" \
+    --arg role "$role" \
+    --arg task_text "$task_text" \
+    --arg mutable_csv "$mutable_csv" \
+    --arg sealed_csv "$sealed_csv" \
+    --arg worktree "$worktree" \
+    --arg budget "$budget" \
+    --arg preflight "$preflight" \
+    --arg stop_csv "$stop_csv" \
+    --arg handoff "$handoff" \
+    '
+    def csv($s): $s | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0));
+    def swarm_defaults: {
+      enabled: false,
+      router_decision: "",
+      coordinator: "primary-agent",
+      shared_context_pack: "",
+      merge_policy: "coordinator-applies",
+      conflict_policy: "stop-and-report",
+      loop_cap: "",
+      agents: [],
+      forbidden_actions: [
+        "push",
+        "pr",
+        "merge",
+        "live-activation",
+        "production-write",
+        "external-write",
+        "destructive-cleanup"
+      ]
+    };
+    def lane_obj: {
+      id: $lane,
+      role: $role,
+      task: $task_text,
+      mutable_surface: csv($mutable_csv),
+      sealed_surface: csv($sealed_csv),
+      worktree: $worktree,
+      budget: $budget,
+      preflight: $preflight,
+      stop_conditions: csv($stop_csv),
+      handoff_artifact: $handoff,
+      status: "pending",
+      updated: $updated
+    };
+    .updated = $updated
+    | .swarm = (swarm_defaults + (.swarm // {}))
+    | .swarm.agents = (((.swarm.agents // []) | map(select(.id != $lane))) + [lane_obj])
+    | .stage_artifacts = ((.stage_artifacts // {}) + {
+        brief: (.stage_artifacts.brief // ""),
+        context_pack: (.stage_artifacts.context_pack // .surfaces.context_pack // ""),
+        worker_briefs: (.stage_artifacts.worker_briefs // []),
+        worker_handoffs: (.stage_artifacts.worker_handoffs // []),
+        reviews: (.stage_artifacts.reviews // []),
+        polish: (.stage_artifacts.polish // []),
+        ship: (.stage_artifacts.ship // "")
+      })
+    | (if $handoff != "" then .stage_artifacts.worker_handoffs = (((.stage_artifacts.worker_handoffs // []) + [$handoff]) | unique) else . end)
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  echo "# Swarm Lane Assigned"
+  echo "- task_path: $task_path"
+  echo "- lane: $lane"
+  echo "- role: $role"
+}
+
+cmd_swarm_record() {
+  need_jq
+  local task_path="" lane="" status="" handoff="" evidence="" notes="" workflow_file lane_count tmp
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      --lane) lane="${2:-}"; shift 2 ;;
+      --status) status="${2:-}"; shift 2 ;;
+      --handoff) handoff="$(normalize_path "${2:-}")"; shift 2 ;;
+      --evidence) evidence="${2:-}"; shift 2 ;;
+      --notes) notes="${2:-}"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown swarm record argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "swarm record requires --task-path"
+  [ -n "$lane" ] || die "swarm record requires --lane"
+  [ -n "$status" ] || die "swarm record requires --status"
+  valid_swarm_status "$status" || die "invalid swarm status: $status"
+
+  workflow_file="$(workflow_file_for "$task_path")"
+  [ -f "$workflow_file" ] || die "workflow.json missing; run workflowctl init first"
+  jq empty "$workflow_file" >/dev/null
+  lane_count="$(jq --arg lane "$lane" '[.swarm.agents[]? | select(.id == $lane)] | length' "$workflow_file")"
+  [ "$lane_count" -gt 0 ] || die "swarm lane not found: $lane"
+
+  tmp="$(mktemp)"
+  jq \
+    --arg updated "$(now_utc)" \
+    --arg lane "$lane" \
+    --arg status "$status" \
+    --arg handoff "$handoff" \
+    --arg evidence "$evidence" \
+    --arg notes "$notes" \
+    '
+    .updated = $updated
+    | .swarm.agents = ((.swarm.agents // []) | map(
+        if .id == $lane then
+          .status = $status
+          | .updated = $updated
+          | (if $handoff != "" then .handoff_artifact = $handoff else . end)
+          | (if $evidence != "" then .evidence = $evidence else . end)
+          | (if $notes != "" then .notes = $notes else . end)
+        else . end
+      ))
+    | .stage_artifacts = ((.stage_artifacts // {}) + {
+        worker_handoffs: (.stage_artifacts.worker_handoffs // []),
+        reviews: (.stage_artifacts.reviews // [])
+      })
+    | (if $handoff != "" then .stage_artifacts.worker_handoffs = (((.stage_artifacts.worker_handoffs // []) + [$handoff]) | unique) else . end)
+    ' "$workflow_file" > "$tmp"
+  mv "$tmp" "$workflow_file"
+
+  echo "# Swarm Lane Recorded"
+  echo "- task_path: $task_path"
+  echo "- lane: $lane"
+  echo "- status: $status"
+}
+
+cmd_swarm_check() {
+  need_jq
+  local task_path="" workflow_file decision="" coordinator="" loop_cap="" agents_count=0 implementation_count=0 review_count=0 source_read_count=0
+  local enabled="" invalid_lines="" missing_lines="" lane_contract_lines="" impl_missing_lines="" duplicate_mutable=""
+  local blockers=() warnings=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --task-path) task_path="$(normalize_path "${2:-}")"; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown swarm check argument: $1" ;;
+    esac
+  done
+  [ -n "$task_path" ] || die "swarm check requires --task-path"
+  workflow_file="$(workflow_file_for "$task_path")"
+
+  [ -d "$task_path" ] || blockers+=("task path does not exist")
+  if [ ! -f "$workflow_file" ]; then
+    blockers+=("workflow.json missing; run workflowctl init first")
+  elif ! jq empty "$workflow_file" >/dev/null 2>&1; then
+    blockers+=("workflow.json is invalid JSON")
+  elif [ "$(jq 'has("swarm")' "$workflow_file")" != "true" ]; then
+    blockers+=("swarm contract missing; run workflowctl swarm init first")
+  else
+    decision="$(read_workflow_field "$workflow_file" '.swarm.router_decision' "")"
+    coordinator="$(read_workflow_field "$workflow_file" '.swarm.coordinator' "")"
+    loop_cap="$(read_workflow_field "$workflow_file" '.swarm.loop_cap' "")"
+    enabled="$(read_workflow_field "$workflow_file" '.swarm.enabled' "false")"
+    agents_count="$(jq '.swarm.agents // [] | length' "$workflow_file")"
+    implementation_count="$(jq '[.swarm.agents[]? | select(.role == "implementation")] | length' "$workflow_file")"
+    review_count="$(jq '[.swarm.agents[]? | select(.role == "review" or .role == "validation")] | length' "$workflow_file")"
+    source_read_count="$(jq '[.swarm.agents[]? | select(.role == "source-read")] | length' "$workflow_file")"
+
+    [ -n "$decision" ] && valid_swarm_decision "$decision" || blockers+=("swarm.router_decision is missing or invalid")
+    case "$decision:$enabled" in
+      none:true) warnings+=("swarm.enabled=true while router_decision=none") ;;
+      review-only:false|parallel-read:false|parallel-implement:false) warnings+=("swarm.enabled=false while router_decision=$decision") ;;
+    esac
+
+    if [ "$decision" = "none" ]; then
+      [ "$agents_count" -eq 0 ] || warnings+=("swarm.router_decision=none but lane assignments exist")
+    elif [ -n "$decision" ]; then
+      [ -n "$coordinator" ] || blockers+=("swarm.coordinator is empty")
+      [ -n "$loop_cap" ] || blockers+=("swarm.loop_cap is empty for non-none routing")
+      [ "$agents_count" -gt 0 ] || blockers+=("swarm.agents is empty for non-none routing")
+
+      case "$decision" in
+        parallel-implement)
+          [ "$implementation_count" -gt 0 ] || blockers+=("parallel-implement requires at least one implementation lane")
+          ;;
+        parallel-read)
+          [ "$source_read_count" -gt 0 ] || blockers+=("parallel-read requires at least one source-read lane")
+          ;;
+        review-only)
+          [ "$review_count" -gt 0 ] || blockers+=("review-only requires at least one review or validation lane")
+          ;;
+      esac
+
+      missing_lines="$(jq -r '
+        .swarm.agents[]?
+        | select((.id // "") == "" or (.role // "") == "" or (.task // "") == "")
+        | "\(.id // "missing-id"): missing id, role, or task"
+      ' "$workflow_file")"
+      while IFS= read -r line; do
+        [ -n "$line" ] && blockers+=("$line")
+      done <<< "$missing_lines"
+
+      invalid_lines="$(jq -r '
+        .swarm.agents[]?
+        | select(((.role // "") as $r | ["source-read","implementation","validation","review"] | index($r) | not) or ((.status // "pending") as $s | ["pending","running","complete","blocked","discard"] | index($s) | not))
+        | "\(.id // "missing-id"): invalid role or status"
+      ' "$workflow_file")"
+      while IFS= read -r line; do
+        [ -n "$line" ] && blockers+=("$line")
+      done <<< "$invalid_lines"
+
+      lane_contract_lines="$(jq -r '
+        .swarm.agents[]?
+        | select(((.sealed_surface // []) | length) == 0 or (((.preflight // "") == "") and (((.stop_conditions // []) | length) == 0)))
+        | "\(.id // "missing-id"): lane requires sealed surface and preflight or stop condition"
+      ' "$workflow_file")"
+      while IFS= read -r line; do
+        [ -n "$line" ] && blockers+=("$line")
+      done <<< "$lane_contract_lines"
+
+      impl_missing_lines="$(jq -r '
+        .swarm.agents[]?
+        | select(.role == "implementation")
+        | select(((.mutable_surface // []) | length) == 0 or ((.sealed_surface // []) | length) == 0 or ((.preflight // "") == ""))
+        | "\(.id // "missing-id"): implementation lane requires mutable surface, sealed surface, and preflight"
+      ' "$workflow_file")"
+      while IFS= read -r line; do
+        [ -n "$line" ] && blockers+=("$line")
+      done <<< "$impl_missing_lines"
+
+      if [ "$decision" = "parallel-implement" ]; then
+        duplicate_mutable="$(jq -r '[.swarm.agents[]? | select(.role == "implementation") | .mutable_surface[]?] | group_by(.)[]? | select(length > 1) | .[0]' "$workflow_file" | paste -sd ',' -)"
+        [ -z "$duplicate_mutable" ] || blockers+=("overlapping implementation mutable surfaces: $duplicate_mutable")
+      fi
+    fi
+  fi
+
+  echo "# Swarm Contract Check"
+  echo "- task_path: $task_path"
+  echo "- decision: ${decision:-missing}"
+  echo "- agents: $agents_count"
+  echo "- implementation_lanes: $implementation_count"
+  echo "- source_read_lanes: $source_read_count"
+  echo "- review_validation_lanes: $review_count"
+  echo
+  echo "## Warnings"
+  if [ "${#warnings[@]}" -eq 0 ]; then
+    echo "- none"
+  else
+    printf -- "- %s\n" "${warnings[@]}"
+  fi
+  echo
+  echo "## Blockers"
+  if [ "${#blockers[@]}" -eq 0 ]; then
+    echo "- none"
+    return 0
+  fi
+  printf -- "- %s\n" "${blockers[@]}"
+  return 1
 }
 
 cmd_experiment_init() {
@@ -1222,6 +1982,8 @@ cmd_export() {
         repo: .task.repo,
         classification: .classification,
         mode: .mode,
+        implementation_gate: (.implementation_gate // {}),
+        swarm: (.swarm // {}),
         validation_plan: (.preflight.validation_plan // []),
         approvals: [.approvals[]? | select(.required == true)],
         references: [
@@ -1238,7 +2000,9 @@ cmd_export() {
         "- repo: \(.task.repo // "missing")",
         "- kind: \(.classification.kind // "missing")",
         "- automation: \(.mode.automation // "missing")",
-        "- thinking: \((.mode.thinking // []) | join(","))"
+        "- thinking: \((.mode.thinking // []) | join(","))",
+        "- gate: \(.implementation_gate.decision // "missing")",
+        "- swarm: \(.swarm.router_decision // "missing")"
       ' "$workflow_file"
       echo
       echo "## Validation Plan"
@@ -1246,6 +2010,45 @@ cmd_export() {
       echo
       echo "## Approval Stops"
       jq -r '.approvals[]? | select(.required == true) | "- " + .action' "$workflow_file"
+      ;;
+    swarm-runbook)
+      echo "# Swarm Runbook Export"
+      echo
+      jq -r '
+        "- request: \(.task.request // "missing")",
+        "- repo: \(.task.repo // "missing")",
+        "- worktree: \(.task.worktree // "missing")",
+        "- gate_decision: \(.implementation_gate.decision // "missing")",
+        "- scope_bucket: \(.implementation_gate.scope_bucket // "missing")",
+        "- goal: \(.implementation_gate.goal // "missing")",
+        "- brief: \(.implementation_gate.brief_path // "missing")",
+        "- swarm_decision: \(.swarm.router_decision // "missing")",
+        "- coordinator: \(.swarm.coordinator // "missing")",
+        "- context_pack: \(.swarm.shared_context_pack // .surfaces.context_pack // "missing")",
+        "- loop_cap: \(.swarm.loop_cap // "missing")"
+      ' "$workflow_file"
+      echo
+      echo "## Source Read"
+      jq -r '(.implementation_gate.source_read // []) | if length == 0 then "- none" else .[] | "- " + . end' "$workflow_file"
+      echo
+      echo "## Write Scope"
+      jq -r '(.implementation_gate.write_scope // []) | if length == 0 then "- none" else .[] | "- " + . end' "$workflow_file"
+      echo
+      echo "## Validation Plan"
+      jq -r '(((.implementation_gate.validation_plan // []) + (.preflight.validation_plan // [])) | unique) | if length == 0 then "- none" else .[] | "- " + . end' "$workflow_file"
+      echo
+      echo "## Lanes"
+      jq -r '
+        if ((.swarm.agents // []) | length) == 0 then
+          "- none"
+        else
+          .swarm.agents[] |
+          "- \(.id): \(.role) - \(.task)\n  mutable: \((.mutable_surface // []) | join(","))\n  sealed: \((.sealed_surface // []) | join(","))\n  worktree: \(.worktree // "")\n  preflight: \(.preflight // "")\n  handoff: \(.handoff_artifact // "")\n  status: \(.status // "pending")"
+        end
+      ' "$workflow_file"
+      echo
+      echo "## Forbidden Actions"
+      jq -r '(.swarm.forbidden_actions // []) | if length == 0 then "- none" else .[] | "- " + . end' "$workflow_file"
       ;;
     *)
       die "unsupported export format: $format"
@@ -1256,7 +2059,7 @@ cmd_export() {
 cmd_metrics() {
   need_jq
   local root="$WORKSPACE_ROOT/detection-platform-metal-work" task workflow_file ledger_file route validation_entries
-  local total=0 with_workflow=0 with_resume=0 with_summary=0 with_validation=0 with_validation_entries=0 with_passing_validation=0 with_learning_route=0 with_context_pack=0 with_experiment_contract=0
+  local total=0 with_workflow=0 with_resume=0 with_summary=0 with_validation=0 with_validation_entries=0 with_passing_validation=0 with_learning_route=0 with_context_pack=0 with_experiment_contract=0 with_gate_promoted=0 with_swarm_decision=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --root) root="$(normalize_path "${2:-}")"; shift 2 ;;
@@ -1285,6 +2088,12 @@ cmd_metrics() {
       if [ "$(jq '((.surfaces.mutable // []) | length) > 0 and ((.surfaces.sealed_evaluator // []) | length) > 0 and ((.experiment.budget // "") | length) > 0 and ((.experiment.metric // "") | length) > 0 and ((.experiment.keep_rule // "") | length) > 0' "$workflow_file")" = "true" ]; then
         with_experiment_contract=$((with_experiment_contract + 1))
       fi
+      if [ "$(read_workflow_field "$workflow_file" '.implementation_gate.decision' "")" = "promote-to-implementation" ]; then
+        with_gate_promoted=$((with_gate_promoted + 1))
+      fi
+      if [ "$(read_workflow_field "$workflow_file" '.swarm.router_decision' "")" != "" ]; then
+        with_swarm_decision=$((with_swarm_decision + 1))
+      fi
     fi
     if [ -f "$ledger_file" ] && jq -s empty "$ledger_file" >/dev/null 2>&1; then
       with_validation=$((with_validation + 1))
@@ -1308,6 +2117,8 @@ cmd_metrics() {
   echo "- with_durable_learning_route: $with_learning_route"
   echo "- with_context_pack: $with_context_pack"
   echo "- with_experiment_contract: $with_experiment_contract"
+  echo "- with_gate_promoted: $with_gate_promoted"
+  echo "- with_swarm_decision: $with_swarm_decision"
 }
 
 cmd_close_check() {
@@ -1418,6 +2229,29 @@ case "$cmd" in
     ;;
   validate) shift; cmd_validate "$@" ;;
   context-pack) shift; cmd_context_pack "$@" ;;
+  gate)
+    shift
+    subcmd="${1:-}"
+    case "$subcmd" in
+      init) shift; cmd_gate_init "$@" ;;
+      record) shift; cmd_gate_record "$@" ;;
+      check) shift; cmd_gate_check "$@" ;;
+      -h|--help|"") usage ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    ;;
+  swarm)
+    shift
+    subcmd="${1:-}"
+    case "$subcmd" in
+      init) shift; cmd_swarm_init "$@" ;;
+      assign) shift; cmd_swarm_assign "$@" ;;
+      record) shift; cmd_swarm_record "$@" ;;
+      check) shift; cmd_swarm_check "$@" ;;
+      -h|--help|"") usage ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    ;;
   experiment)
     shift
     subcmd="${1:-}"

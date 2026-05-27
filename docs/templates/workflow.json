@@ -35,6 +35,68 @@
     "sealed_evaluator": [],
     "context_pack": ""
   },
+  "implementation_gate": {
+    "decision": "continue-exploration | promote-to-implementation | stop",
+    "scope_bucket": "trivial | standard | wide",
+    "exploration_sources": [],
+    "source_read": [],
+    "problem_statement": "",
+    "goal": "",
+    "non_goals": [],
+    "implementation_home": "",
+    "brief_path": "",
+    "prd_path": "",
+    "write_scope": [],
+    "sealed_surfaces": [],
+    "validation_plan": [],
+    "open_questions": [],
+    "approval_stops": [],
+    "approved_by": "",
+    "approval_evidence": ""
+  },
+  "swarm": {
+    "enabled": false,
+    "router_decision": "none | review-only | parallel-read | parallel-implement",
+    "coordinator": "primary-agent",
+    "shared_context_pack": "",
+    "merge_policy": "coordinator-applies",
+    "conflict_policy": "stop-and-report",
+    "loop_cap": "",
+    "agents": [
+      {
+        "id": "A",
+        "role": "source-read | implementation | validation | review",
+        "task": "",
+        "mutable_surface": [],
+        "sealed_surface": [],
+        "worktree": "",
+        "budget": "",
+        "preflight": "",
+        "stop_conditions": [],
+        "handoff_artifact": "",
+        "status": "pending | running | complete | blocked | discard",
+        "updated": ""
+      }
+    ],
+    "forbidden_actions": [
+      "push",
+      "pr",
+      "merge",
+      "live-activation",
+      "production-write",
+      "external-write",
+      "destructive-cleanup"
+    ]
+  },
+  "stage_artifacts": {
+    "brief": "",
+    "context_pack": "",
+    "worker_briefs": [],
+    "worker_handoffs": [],
+    "reviews": [],
+    "polish": [],
+    "ship": ""
+  },
   "experiment": {
     "budget": "",
     "metric": "",

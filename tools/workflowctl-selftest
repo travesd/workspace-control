@@ -82,11 +82,106 @@ fi
 "$TOOL" context-pack --task-path "$TMPDIR/task" --max-bytes 2000 >/dev/null
 test -d "$TMPDIR/task/artifacts"
 find "$TMPDIR/task/artifacts" -type f -name 'context-pack-*.md' | grep -q .
+test "$(jq -r '.stage_artifacts.context_pack' "$TMPDIR/task/workflow.json")" != ""
+
+"$TOOL" gate init \
+  --task-path "$TMPDIR/task" \
+  --scope-bucket standard \
+  --decision promote-to-implementation >/dev/null
+if "$TOOL" gate check --task-path "$TMPDIR/task" >/dev/null 2>&1; then
+  echo "expected gate check to fail before promotion evidence is recorded" >&2
+  exit 1
+fi
+
+cat > "$TMPDIR/task/implementation-brief.md" <<EOF
+# Implementation Brief
+
+## Goal
+
+Exercise the workflowctl gate and swarm contract.
+EOF
+
+"$TOOL" gate record \
+  --task-path "$TMPDIR/task" \
+  --decision promote-to-implementation \
+  --scope-bucket standard \
+  --brief "$TMPDIR/task/implementation-brief.md" \
+  --goal "exercise workflowctl gate and swarm contract" \
+  --source-read "tools/workflowctl,tools/workflowctl-selftest" \
+  --write-scope "tools/workflowctl,docs/reference/workflowctl.md" \
+  --sealed-surface "tools/workflowctl-selftest" \
+  --validation "git diff --check,./tools/workflowctl-selftest" >/dev/null
+"$TOOL" gate check --task-path "$TMPDIR/task" >/dev/null
+
+"$TOOL" swarm init \
+  --task-path "$TMPDIR/task" \
+  --decision parallel-read \
+  --loop-cap "2 blocker review loops" >/dev/null
+if "$TOOL" swarm check --task-path "$TMPDIR/task" >/dev/null 2>&1; then
+  echo "expected swarm check to fail before lane assignment" >&2
+  exit 1
+fi
+"$TOOL" swarm assign \
+  --task-path "$TMPDIR/task" \
+  --lane A \
+  --role source-read \
+  --task "review workflowctl contract shape" \
+  --sealed "tools/workflowctl,docs/reference/workflowctl.md" \
+  --preflight "context pack read" \
+  --handoff "$TMPDIR/task/artifacts/swarm/A-handoff.md" >/dev/null
+"$TOOL" swarm check --task-path "$TMPDIR/task" >/dev/null
+"$TOOL" swarm record \
+  --task-path "$TMPDIR/task" \
+  --lane A \
+  --status complete \
+  --handoff "$TMPDIR/task/artifacts/swarm/A-handoff.md" \
+  --evidence "self-test" >/dev/null
+
+"$TOOL" init \
+  --task-path "$TMPDIR/impl" \
+  --kind implementation \
+  --repo workspace-control \
+  --request "workflowctl parallel implement self-test" >/dev/null
+"$TOOL" swarm init \
+  --task-path "$TMPDIR/impl" \
+  --decision parallel-implement \
+  --loop-cap "1 integration loop" >/dev/null
+"$TOOL" swarm assign \
+  --task-path "$TMPDIR/impl" \
+  --lane A \
+  --role implementation \
+  --task "edit first surface" \
+  --mutable "tools/workflowctl" \
+  --sealed "tools/workflowctl-selftest" \
+  --preflight "context pack read" >/dev/null
+"$TOOL" swarm assign \
+  --task-path "$TMPDIR/impl" \
+  --lane B \
+  --role implementation \
+  --task "edit overlapping surface" \
+  --mutable "tools/workflowctl" \
+  --sealed "docs/reference/workflowctl.md" \
+  --preflight "context pack read" >/dev/null
+if "$TOOL" swarm check --task-path "$TMPDIR/impl" >/dev/null 2>&1; then
+  echo "expected swarm check to fail for overlapping implementation surfaces" >&2
+  exit 1
+fi
+"$TOOL" swarm assign \
+  --task-path "$TMPDIR/impl" \
+  --lane B \
+  --role implementation \
+  --task "edit second surface" \
+  --mutable "docs/reference/workflowctl.md" \
+  --sealed "tools/workflowctl-selftest" \
+  --preflight "context pack read" >/dev/null
+"$TOOL" swarm check --task-path "$TMPDIR/impl" >/dev/null
 
 "$TOOL" export --task-path "$TMPDIR/task" --format pi-workflow > "$TMPDIR/pi-workflow.json"
 jq empty "$TMPDIR/pi-workflow.json"
 "$TOOL" export --task-path "$TMPDIR/task" --format agentic-runbook > "$TMPDIR/runbook.md"
 test -s "$TMPDIR/runbook.md"
+"$TOOL" export --task-path "$TMPDIR/task" --format swarm-runbook > "$TMPDIR/swarm-runbook.md"
+test -s "$TMPDIR/swarm-runbook.md"
 
 "$TOOL" metrics --root /workspace/detection-platform-metal-work >/dev/null
 

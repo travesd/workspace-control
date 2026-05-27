@@ -106,6 +106,45 @@ Fields:
 | `artifact` | Preserve evidence. | Screenshots, JSONL outputs, run dirs, dataset manifests. |
 | `learning` | Route reusable findings. | Knowledge note, skill draft, ADR, task summary only. |
 
+## Exploration Promotion Gate
+
+Exploratory code discussion is allowed to stay conversational. The switch to
+implementation is explicit: record `implementation_gate.decision` as
+`promote-to-implementation`, choose a scope bucket, and point to an
+implementation brief before edits start.
+
+Required promotion evidence:
+
+- goal and problem statement when relevant;
+- source-read evidence;
+- write scope and sealed surfaces;
+- validation plan;
+- approval stops;
+- swarm routing decision for non-trivial work.
+
+Scope buckets keep the overhead proportional:
+
+| Bucket | Typical Work | Default Routing |
+|---|---|---|
+| `trivial` | One file, obvious existing pattern. | `none` or `review-only`. |
+| `standard` | Two to five files or one subsystem. | `parallel-read` plus review/validation. |
+| `wide` | Cross-subsystem, UI/API/schema, LLM/eval, or operating-model work. | `parallel-implement` only with disjoint write scopes or separate worktrees. |
+
+`gate check` blocks implementation until promotion evidence is present. It
+does not block pure research from continuing.
+
+## Background Swarm Contract
+
+Background agents are a routing decision, not a standing rule. The coordinator
+records one of `none`, `review-only`, `parallel-read`, or
+`parallel-implement`; `none` is valid for clear small changes.
+
+Every lane must have a role, bounded task, sealed surface, stop condition or
+preflight note, and handoff artifact. Implementation lanes additionally require
+mutable surfaces and must not overlap mutable surfaces under
+`parallel-implement`. Workers may not push, open PRs, merge, live-activate,
+write production data, perform external writes, or run destructive cleanup.
+
 ## Experiment Contract
 
 Autonomous or semi-autonomous iteration is allowed only when the task has a
@@ -145,11 +184,19 @@ workflowctl validation add --task-path <path> --command <text> --result <result>
 workflowctl validation import --task-path <path>
 workflowctl validate --task-path <path>
 workflowctl context-pack --task-path <path>
+workflowctl gate init --task-path <path>
+workflowctl gate record --task-path <path> --decision <decision>
+workflowctl gate check --task-path <path>
+workflowctl swarm init --task-path <path> --decision <decision>
+workflowctl swarm assign --task-path <path> --lane <id> --role <role> --task <text>
+workflowctl swarm record --task-path <path> --lane <id> --status complete|blocked|discard
+workflowctl swarm check --task-path <path>
 workflowctl experiment init --task-path <path>
 workflowctl experiment check --task-path <path>
 workflowctl experiment record --task-path <path> --status keep|discard|crash
 workflowctl export --format pi-workflow --task-path <path>
 workflowctl export --format agentic-runbook --task-path <path>
+workflowctl export --format swarm-runbook --task-path <path>
 workflowctl metrics --root <work-root>
 workflowctl close-check --task-path <path>
 ```

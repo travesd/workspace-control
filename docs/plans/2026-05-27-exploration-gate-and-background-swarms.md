@@ -2,7 +2,7 @@
 
 Date: 2026-05-27
 
-Status: proposed; workspace-control only; not activated live
+Status: proposed; workflowctl MVP implemented in workspace-control; not activated live
 
 Related research:
 

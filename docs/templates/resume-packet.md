@@ -14,6 +14,13 @@ Paste this block into `resume.md` for any non-trivial task.
 - Sessions/transcripts:
 - Validation done:
 - Validation still needed:
+- Implementation gate:
+  - Decision: continue-exploration | promote-to-implementation | stop
+  - Scope bucket: trivial | standard | wide
+  - Brief:
+  - Source-read evidence:
+  - Write scope:
+  - Swarm routing: none | review-only | parallel-read | parallel-implement
 - Important decisions:
 - Constraints and guardrails:
 - Artifacts and evidence:
@@ -41,4 +48,3 @@ losing critical state.
 
 Score against
 `/workspace/workspace-control/docs/specs/task-resumability.md`.
-
