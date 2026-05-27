@@ -1,6 +1,6 @@
 # Multi-Repo Task Organization
 
-Status: draft in workspace-control; not activated live
+Status: activated live in `/workspace`
 
 Date: 2026-05-27
 
@@ -34,7 +34,7 @@ Every first-class repo follows the same pattern:
 /workspace/<repo-name>-work/
 ```
 
-Current and planned roots:
+Current roots:
 
 | Repo | Checkout | Worktrees | Task Root |
 |---|---|---|---|
@@ -42,10 +42,9 @@ Current and planned roots:
 | `detection-agentic-workflows` | `/workspace/detection-agentic-workflows` | `/workspace/detection-agentic-workflows.worktrees/` | `/workspace/detection-agentic-workflows-work/` |
 | `workspace-control` | `/workspace/workspace-control` | `/workspace/workspace-control.worktrees/` | `/workspace/workspace-control-work/` |
 
-`workspace-control-work/` is the intended home for future workspace-control
-operating-model tasks after live activation. Until activation, existing
-workspace-control task records may remain where they were created, but new
-repo-first work should move toward this root.
+`workspace-control-work/` is the live home for future workspace-control
+operating-model tasks. Existing transitional workspace-control task records may
+remain where they were created, but new repo-first work should use this root.
 
 ## Lifecycle Shape
 
@@ -96,8 +95,8 @@ Repo helper:
 ```
 
 Live generation to `/workspace/TASKS.md` and
-`/workspace/.task-index/index.json` should happen only after activation
-approval.
+`/workspace/.task-index/index.json` is active. Regenerate the index after task
+lifecycle changes that should appear in central discovery.
 
 ## Task Ownership
 
